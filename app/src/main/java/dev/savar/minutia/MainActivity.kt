@@ -51,6 +51,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -73,6 +74,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -208,9 +210,7 @@ private fun SettingsScreen(launchId: Int) {
         }
     }
 
-    // ---------- font download state ----------
-    var fontQuery by remember(selectedId) { mutableStateOf(cfg.googleFamily) }
-    var fontTab by remember(selectedId) { mutableStateOf(cfg.fontSource) }
+    // Google Fonts name list for type-ahead (shared by the clock and date font editors).
     var catalogueVersion by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         FontManager.loadCatalogue(ctx)
@@ -218,50 +218,7 @@ private fun SettingsScreen(launchId: Int) {
     }
     var showAppPicker by remember { mutableStateOf(false) }
     var nameHint by remember { mutableStateOf(false) }
-    var fontStatus by remember { mutableStateOf<String?>(null) }
-    var downloading by remember { mutableStateOf(false) }
-
-    fun fetchGoogle(name: String, weight: Int = cfg.fontWeight) {
-        val typed = name.trim()
-        if (typed.isEmpty() || downloading) return
-        downloading = true
-        fontStatus = "Downloading $typed…"
-        scope.launch {
-            val r = FontManager.downloadGoogleFont(ctx, typed, weight)
-            downloading = false
-            r.onSuccess { family ->
-                update(cfg.copy(fontSource = FontSource.GOOGLE, googleFamily = family, fontWeight = weight))
-                fontTab = FontSource.GOOGLE
-                fontQuery = family
-                fontVersion++
-                fontStatus = "Using $family"
-            }.onFailure {
-                fontStatus = it.message ?: "Couldn't get “$typed”."
-            }
-        }
-    }
-
-    val pickFont = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                FontManager.importLocalFont(ctx, uri)
-                    .onSuccess {
-                        update(cfg.copy(fontSource = FontSource.FILE, localFontFile = it))
-                        fontTab = FontSource.FILE
-                        fontVersion++
-                        fontStatus = "Font loaded from file"
-                    }
-                    .onFailure { fontStatus = it.message }
-            }
-        }
-    }
-
-    // Make sure the selected Google font exists for the selected weight.
-    LaunchedEffect(selectedId) {
-        if (cfg.fontSource == FontSource.GOOGLE && !FontManager.isGoogleDownloaded(ctx, cfg.googleFamily, cfg.fontWeight)) {
-            fetchGoogle(cfg.googleFamily)
-        }
-    }
+    var resetCount by remember { mutableIntStateOf(0) }
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
@@ -408,143 +365,49 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 }
 
-                // ---------- font ----------
-                if (cfg.style != ClockStyle.ANALOG) {
+                // ---------- fonts ----------
+                val hasDateLine = cfg.showDate || (!cfg.use24h && cfg.showAmPm && cfg.style != ClockStyle.ANALOG)
+                if (cfg.style != ClockStyle.ANALOG || hasDateLine) {
                     Section("Font") {
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            val all = FontSource.entries
-                            all.forEachIndexed { i, src ->
-                                SegmentedButton(
-                                    selected = fontTab == src,
-                                    onClick = {
-                                        fontTab = src
-                                        fontStatus = null
-                                        when (src) {
-                                            FontSource.SYSTEM -> update(cfg.copy(fontSource = src))
-                                            FontSource.GOOGLE ->
-                                                if (FontManager.isGoogleDownloaded(ctx, cfg.googleFamily, cfg.fontWeight)) {
-                                                    update(cfg.copy(fontSource = src))
-                                                } else {
-                                                    fetchGoogle(cfg.googleFamily)
-                                                }
-                                            FontSource.FILE ->
-                                                if (cfg.localFontFile.isNotEmpty()) update(cfg.copy(fontSource = src))
-                                                else pickFont.launch(arrayOf("*/*"))
-                                        }
-                                    },
-                                    shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
-                                    icon = {},
-                                ) { Text(src.label, maxLines = 1) }
-                            }
+                        if (cfg.style != ClockStyle.ANALOG) {
+                            FontEditor(
+                                spec = cfg.clockFont,
+                                resetKey = Triple(selectedId, resetCount, "clock"),
+                                catalogueVersion = catalogueVersion,
+                                onPreview = { setLocal(cfg.withClockFont(it)) },
+                                onApply = { update(cfg.withClockFont(it)) },
+                                onFontLoaded = { fontVersion++ },
+                            )
                         }
-                        Spacer(Modifier.height(14.dp))
-
-                        when (fontTab) {
-                            FontSource.SYSTEM -> ChipFlow {
-                                FontManager.systemFamilies.forEach { (fam, label) ->
-                                    FilterChip(
-                                        selected = cfg.fontSource == FontSource.SYSTEM && cfg.systemFamily == fam,
-                                        onClick = { update(cfg.copy(fontSource = FontSource.SYSTEM, systemFamily = fam)) },
-                                        label = { Text(label) },
-                                    )
+                        if (hasDateLine) {
+                            if (cfg.style != ClockStyle.ANALOG) {
+                                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = scheme.outlineVariant)
+                            }
+                            Text("Date font", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                                val modes = DateFontMode.entries.filter {
+                                    it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
+                                }
+                                modes.forEachIndexed { i, m ->
+                                    SegmentedButton(
+                                        selected = cfg.dateFontMode == m,
+                                        onClick = { update(cfg.copy(dateFontMode = m)) },
+                                        shape = SegmentedButtonDefaults.itemShape(index = i, count = modes.size),
+                                        icon = {},
+                                    ) { Text(m.label, maxLines = 1) }
                                 }
                             }
-
-                            FontSource.GOOGLE -> Column {
-                                OutlinedTextField(
-                                    value = fontQuery,
-                                    onValueChange = { fontQuery = it },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(16.dp),
-                                    placeholder = { Text("Search any Google Font") },
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                                    trailingIcon = {
-                                        if (downloading) {
-                                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            IconButton(onClick = { fetchGoogle(fontQuery) }, enabled = fontQuery.isNotBlank()) {
-                                                Icon(Icons.Default.Check, contentDescription = "Use this font")
-                                            }
-                                        }
-                                    },
-                                    supportingText = if (fontStatus != null) { { Text(fontStatus ?: "") } } else null,
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                    keyboardActions = KeyboardActions(onDone = { fetchGoogle(fontQuery) }),
-                                    modifier = Modifier.fillMaxWidth(),
+                            if (cfg.dateFontMode == DateFontMode.CUSTOM) {
+                                Spacer(Modifier.height(14.dp))
+                                FontEditor(
+                                    spec = cfg.dateFont,
+                                    resetKey = Triple(selectedId, resetCount, "date"),
+                                    catalogueVersion = catalogueVersion,
+                                    onPreview = { setLocal(cfg.withDateFont(it)) },
+                                    onApply = { update(cfg.withDateFont(it)) },
+                                    onFontLoaded = { fontVersion++ },
                                 )
-                                val matches = remember(fontQuery, catalogueVersion) { FontManager.suggest(ctx, fontQuery) }
-                                val typing = fontQuery.isNotBlank() && !fontQuery.trim().equals(cfg.googleFamily, ignoreCase = true)
-                                val chips = if (typing && matches.isNotEmpty()) matches else FontManager.googleSuggestions
-                                Text(
-                                    if (typing && matches.isNotEmpty()) "Matching fonts" else "Popular picks",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = scheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
-                                )
-                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                                    // Fresh scroll position whenever the list switches between matches and popular picks.
-                                    val rowState = remember(chips) { LazyListState() }
-                                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        items(chips) { fam ->
-                                            FilterChip(
-                                                selected = cfg.fontSource == FontSource.GOOGLE &&
-                                                    cfg.googleFamily.equals(fam, ignoreCase = true),
-                                                onClick = { fontQuery = fam; fetchGoogle(fam) },
-                                                label = { Text(fam) },
-                                            )
-                                        }
-                                    }
-                                }
-                                TextButton(
-                                    onClick = {
-                                        runCatching {
-                                            ctx.startActivity(
-                                                Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com/"))
-                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                            )
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 0.dp),
-                                ) { Text("Browse all fonts on fonts.google.com") }
                             }
-
-                            FontSource.FILE -> Column {
-                                Text(
-                                    if (cfg.fontSource == FontSource.FILE && cfg.localFontFile.isNotEmpty()) "Using your font file."
-                                    else "Load any .ttf or .otf font from your phone.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                fontStatus?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error)
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                OutlinedButton(onClick = { pickFont.launch(arrayOf("*/*")) }) {
-                                    Text(if (cfg.localFontFile.isEmpty()) "Choose font file" else "Choose another file")
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-                        LabeledSlider(
-                            label = "Weight",
-                            value = cfg.fontWeight,
-                            range = 100..900,
-                            steps = 7,
-                            valueText = "${cfg.fontWeight}",
-                            onChange = { setLocal(cfg.copy(fontWeight = (it / 100) * 100)) },
-                            onDone = {
-                                if (cfg.fontSource == FontSource.GOOGLE &&
-                                    !FontManager.isGoogleDownloaded(ctx, cfg.googleFamily, cfg.fontWeight)
-                                ) fetchGoogle(cfg.googleFamily, cfg.fontWeight) else commit()
-                            },
-                        )
-                        Text(
-                            "Some fonts only come in one weight.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = scheme.onSurfaceVariant,
-                        )
-                        SwitchRow("Use this font for the date too", cfg.dateUsesClockFont) {
-                            update(cfg.copy(dateUsesClockFont = it))
                         }
                     }
                 }
@@ -676,7 +539,7 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 }
 
-                TextButton(onClick = { update(WidgetConfig()); fontQuery = WidgetConfig().googleFamily; fontTab = FontSource.SYSTEM }) {
+                TextButton(onClick = { update(WidgetConfig()); resetCount++ }) {
                     Text("Reset to defaults")
                 }
                 val version = remember {
@@ -876,4 +739,215 @@ private fun AppPickerDialog(onDismiss: () -> Unit, onPick: (String) -> Unit) {
             }
         },
     )
+}
+
+/**
+ * Pick a font from System / Google Fonts / a file, plus its weight. Used for both the clock
+ * and the date. [onPreview] updates the preview only (while dragging); [onApply] saves.
+ */
+@Composable
+private fun FontEditor(
+    spec: FontSpec,
+    resetKey: Any,
+    catalogueVersion: Int,
+    onPreview: (FontSpec) -> Unit,
+    onApply: (FontSpec) -> Unit,
+    onFontLoaded: () -> Unit,
+) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val scheme = MaterialTheme.colorScheme
+    val current by rememberUpdatedState(spec)
+    val applyFont by rememberUpdatedState(onApply)
+    val fontLoaded by rememberUpdatedState(onFontLoaded)
+
+    var tab by remember(resetKey) { mutableStateOf(spec.source) }
+    var query by remember(resetKey) { mutableStateOf(spec.googleFamily) }
+    var status by remember(resetKey) { mutableStateOf<String?>(null) }
+    var downloading by remember { mutableStateOf(false) }
+
+    fun fetch(name: String, weight: Int = current.weight) {
+        val typed = name.trim()
+        if (typed.isEmpty() || downloading) return
+        downloading = true
+        status = "Downloading $typed…"
+        scope.launch {
+            val r = FontManager.downloadGoogleFont(ctx, typed, weight)
+            downloading = false
+            r.onSuccess { family ->
+                applyFont(current.copy(source = FontSource.GOOGLE, googleFamily = family, weight = weight))
+                tab = FontSource.GOOGLE
+                query = family
+                fontLoaded()
+                status = "Using $family"
+            }.onFailure {
+                status = it.message ?: "Couldn't get “$typed”."
+            }
+        }
+    }
+
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                FontManager.importLocalFont(ctx, uri)
+                    .onSuccess {
+                        applyFont(current.copy(source = FontSource.FILE, localFontFile = it))
+                        tab = FontSource.FILE
+                        fontLoaded()
+                        status = null
+                    }
+                    .onFailure { status = it.message }
+            }
+        }
+    }
+
+    // Make sure a chosen Google font is on the phone (e.g. after reinstalling).
+    LaunchedEffect(resetKey) {
+        if (spec.source == FontSource.GOOGLE && spec.googleFamily.isNotBlank() &&
+            !FontManager.isGoogleDownloaded(ctx, spec.googleFamily, spec.weight)
+        ) fetch(spec.googleFamily)
+    }
+
+    Column {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            val all = FontSource.entries
+            all.forEachIndexed { i, src ->
+                SegmentedButton(
+                    selected = tab == src,
+                    onClick = {
+                        tab = src
+                        status = null
+                        when (src) {
+                            FontSource.SYSTEM -> applyFont(current.copy(source = src))
+                            FontSource.GOOGLE -> {
+                                val fam = current.googleFamily
+                                if (fam.isBlank()) {
+                                    // Nothing chosen yet: just show the search box.
+                                } else if (FontManager.isGoogleDownloaded(ctx, fam, current.weight)) {
+                                    applyFont(current.copy(source = src))
+                                } else {
+                                    fetch(fam)
+                                }
+                            }
+                            FontSource.FILE ->
+                                if (current.localFontFile.isNotEmpty()) applyFont(current.copy(source = src))
+                                else pick.launch(arrayOf("*/*"))
+                        }
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
+                    icon = {},
+                ) { Text(src.label, maxLines = 1) }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+
+        when (tab) {
+            FontSource.SYSTEM -> ChipFlow {
+                FontManager.systemFamilies.forEach { (fam, label) ->
+                    FilterChip(
+                        selected = spec.source == FontSource.SYSTEM && spec.systemFamily == fam,
+                        onClick = { applyFont(current.copy(source = FontSource.SYSTEM, systemFamily = fam)) },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
+            FontSource.GOOGLE -> Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    placeholder = { Text("Search any Google Font") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (downloading) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            IconButton(onClick = { fetch(query) }, enabled = query.isNotBlank()) {
+                                Icon(Icons.Default.Check, contentDescription = "Use this font")
+                            }
+                        }
+                    },
+                    supportingText = if (status != null) { { Text(status ?: "") } } else null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { fetch(query) }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val matches = remember(query, catalogueVersion) { FontManager.suggest(ctx, query) }
+                val typing = query.isNotBlank() && !query.trim().equals(spec.googleFamily, ignoreCase = true)
+                val chips = if (typing && matches.isNotEmpty()) matches else FontManager.googleSuggestions
+                Text(
+                    if (typing && matches.isNotEmpty()) "Matching fonts" else "Popular picks",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
+                )
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    // Fresh scroll position whenever the list switches between matches and popular picks.
+                    val rowState = remember(chips) { LazyListState() }
+                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(chips) { fam ->
+                            FilterChip(
+                                selected = spec.source == FontSource.GOOGLE && spec.googleFamily.equals(fam, ignoreCase = true),
+                                onClick = { query = fam; fetch(fam) },
+                                label = { Text(fam) },
+                            )
+                        }
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com/"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+                    contentPadding = PaddingValues(horizontal = 0.dp),
+                ) { Text("Browse all fonts on fonts.google.com") }
+            }
+
+            FontSource.FILE -> Column {
+                Text(
+                    if (spec.source == FontSource.FILE && spec.localFontFile.isNotEmpty()) "Using your font file."
+                    else "Load any .ttf or .otf font from your phone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                status?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) {
+                    Text(if (spec.localFontFile.isEmpty()) "Choose font file" else "Choose another file")
+                }
+            }
+        }
+
+        if (tab != FontSource.FILE) {
+            Spacer(Modifier.height(10.dp))
+            LabeledSlider(
+                label = "Weight",
+                value = spec.weight,
+                range = 100..900,
+                steps = 7,
+                valueText = "${spec.weight}",
+                onChange = { onPreview(current.copy(weight = (it / 100) * 100)) },
+                onDone = {
+                    val f = current
+                    if (f.source == FontSource.GOOGLE && !FontManager.isGoogleDownloaded(ctx, f.googleFamily, f.weight)) {
+                        fetch(f.googleFamily, f.weight)
+                    } else {
+                        applyFont(f)
+                    }
+                },
+            )
+            Text(
+                "Some fonts only come in one weight.",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+            )
+        }
+    }
 }

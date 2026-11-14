@@ -14,8 +14,9 @@ Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). P
 - `ClockRenderer.kt`: draws the whole widget into a Bitmap (Canvas). Each style returns a `Block` laid out at unit size 100, then scaled to fit the widget area × `sizePercent`. Styles: BOLD, STACKED, PILLS, ANALOG, WORDS. Add a style = add enum in `WidgetConfig.kt` + a block function + a `when` branch.
 - `ClockWidgetProvider.kt`: `AppWidgetProvider` + `TickScheduler` (exact alarm at each minute boundary, `USE_EXACT_ALARM`) + `WidgetUpdater` (RemoteViews with one ImageView; size from widget options, capped at ~1.2 MP). Also re-renders on TIME_SET / TIMEZONE / LOCALE / BOOT / package replaced.
 - `WidgetConfig.kt`: per-widget settings as JSON in SharedPreferences (`w_<id>`); new widgets inherit the last edited config.
-- `FontManager.kt`: system fonts, Google Fonts download, local .ttf/.otf import. Fonts are stored in `filesDir/fonts`.
-- `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity.
+- `FontManager.kt`: system fonts, Google Fonts download, local .ttf/.otf import. Fonts are stored in `filesDir/fonts`. `typeface(ctx, FontSpec)` resolves any font choice.
+- Fonts are `FontSpec`s: `WidgetConfig.clockFont` / `withClockFont()` and `dateFont` / `withDateFont()` (date used only when `dateFontMode == CUSTOM`; `DEFAULT` = sans-serif 500, `CLOCK` = clock font). Old configs' `dateUsesClockFont` migrates to `CLOCK`.
+- `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity. `FontEditor` is the reusable font picker (System / Google / File + weight) used for the clock and the date.
 
 ## Gotchas
 - **Google Fonts names are case-sensitive** in the CSS API (`fragment mono` → 400, `Fragment Mono` → 200). `FontManager` downloads `fonts.google.com/metadata/fonts` (~2.7 MB, ~1,960 families, cached weekly in `filesDir/fonts/catalogue.txt`) to map typed names to official ones and for type-ahead, then falls back to Title Case + known acronyms (IBM, DM, EB, PT…).

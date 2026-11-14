@@ -17,6 +17,21 @@ enum class FontSource(val label: String) {
     FILE("File"),
 }
 
+enum class DateFontMode(val label: String) {
+    DEFAULT("Default"),
+    CLOCK("Same as clock"),
+    CUSTOM("Custom"),
+}
+
+/** One font choice: where it comes from plus the details for that source. */
+data class FontSpec(
+    val source: FontSource = FontSource.SYSTEM,
+    val systemFamily: String = "sans-serif",
+    val weight: Int = 500,
+    val googleFamily: String = "",
+    val localFontFile: String = "",
+)
+
 enum class HAlign(val label: String) {
     START("Left"),
     CENTER("Centre"),
@@ -37,7 +52,12 @@ data class WidgetConfig(
     val fontWeight: Int = 800,
     val googleFamily: String = "Space Grotesk",
     val localFontFile: String = "",
-    val dateUsesClockFont: Boolean = false,
+    val dateFontMode: DateFontMode = DateFontMode.DEFAULT,
+    val dateFontSource: FontSource = FontSource.SYSTEM,
+    val dateSystemFamily: String = "sans-serif",
+    val dateFontWeight: Int = 500,
+    val dateGoogleFamily: String = "",
+    val dateLocalFontFile: String = "",
     val useWallpaperColors: Boolean = true,
     val primaryColor: Int = 0xFFFFFFFF.toInt(),
     val accentColor: Int = 0xFFFFB59E.toInt(),
@@ -59,6 +79,22 @@ data class WidgetConfig(
     val tapAction: TapAction = TapAction.CLOCK,
     val tapPackage: String = "",
 ) {
+    val clockFont: FontSpec
+        get() = FontSpec(fontSource, systemFamily, fontWeight, googleFamily, localFontFile)
+
+    fun withClockFont(f: FontSpec) = copy(
+        fontSource = f.source, systemFamily = f.systemFamily, fontWeight = f.weight,
+        googleFamily = f.googleFamily, localFontFile = f.localFontFile,
+    )
+
+    val dateFont: FontSpec
+        get() = FontSpec(dateFontSource, dateSystemFamily, dateFontWeight, dateGoogleFamily, dateLocalFontFile)
+
+    fun withDateFont(f: FontSpec) = copy(
+        dateFontSource = f.source, dateSystemFamily = f.systemFamily, dateFontWeight = f.weight,
+        dateGoogleFamily = f.googleFamily, dateLocalFontFile = f.localFontFile,
+    )
+
     fun toJson(): String = JSONObject().apply {
         put("style", style.name)
         put("fontSource", fontSource.name)
@@ -66,7 +102,12 @@ data class WidgetConfig(
         put("fontWeight", fontWeight)
         put("googleFamily", googleFamily)
         put("localFontFile", localFontFile)
-        put("dateUsesClockFont", dateUsesClockFont)
+        put("dateFontMode", dateFontMode.name)
+        put("dateFontSource", dateFontSource.name)
+        put("dateSystemFamily", dateSystemFamily)
+        put("dateFontWeight", dateFontWeight)
+        put("dateGoogleFamily", dateGoogleFamily)
+        put("dateLocalFontFile", dateLocalFontFile)
         put("useWallpaperColors", useWallpaperColors)
         put("primaryColor", primaryColor)
         put("accentColor", accentColor)
@@ -104,7 +145,14 @@ data class WidgetConfig(
                     fontWeight = o.optInt("fontWeight", d.fontWeight),
                     googleFamily = o.optString("googleFamily", d.googleFamily),
                     localFontFile = o.optString("localFontFile", d.localFontFile),
-                    dateUsesClockFont = o.optBoolean("dateUsesClockFont", d.dateUsesClockFont),
+                    // Before 1.3.0 this was a single "dateUsesClockFont" switch.
+                    dateFontMode = if (o.has("dateFontMode")) enumOr(o.optString("dateFontMode"), d.dateFontMode)
+                    else if (o.optBoolean("dateUsesClockFont", false)) DateFontMode.CLOCK else DateFontMode.DEFAULT,
+                    dateFontSource = enumOr(o.optString("dateFontSource"), d.dateFontSource),
+                    dateSystemFamily = o.optString("dateSystemFamily", d.dateSystemFamily),
+                    dateFontWeight = o.optInt("dateFontWeight", d.dateFontWeight),
+                    dateGoogleFamily = o.optString("dateGoogleFamily", d.dateGoogleFamily),
+                    dateLocalFontFile = o.optString("dateLocalFontFile", d.dateLocalFontFile),
                     useWallpaperColors = o.optBoolean("useWallpaperColors", d.useWallpaperColors),
                     primaryColor = o.optInt("primaryColor", d.primaryColor),
                     accentColor = o.optInt("accentColor", d.accentColor),

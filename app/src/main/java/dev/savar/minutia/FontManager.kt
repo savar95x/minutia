@@ -64,17 +64,22 @@ object FontManager {
     private fun system(family: String, weight: Int): Typeface =
         Typeface.create(Typeface.create(family, Typeface.NORMAL), weight.coerceIn(100, 900), false)
 
-    fun clockTypeface(ctx: Context, cfg: WidgetConfig): Typeface = when (cfg.fontSource) {
-        FontSource.SYSTEM -> system(cfg.systemFamily, cfg.fontWeight)
-        FontSource.GOOGLE -> fromFile(googleFile(ctx, cfg.googleFamily, cfg.fontWeight))
-            ?: googleFileAnyWeight(ctx, cfg.googleFamily)?.let { fromFile(it) }
-            ?: system("sans-serif", cfg.fontWeight)
-        FontSource.FILE -> fromFile(File(fontsDir(ctx), cfg.localFontFile).takeIf { cfg.localFontFile.isNotEmpty() } ?: File(""))
-            ?: system("sans-serif", cfg.fontWeight)
+    fun typeface(ctx: Context, f: FontSpec): Typeface = when (f.source) {
+        FontSource.SYSTEM -> system(f.systemFamily, f.weight)
+        FontSource.GOOGLE -> fromFile(googleFile(ctx, f.googleFamily, f.weight))
+            ?: googleFileAnyWeight(ctx, f.googleFamily)?.let { fromFile(it) }
+            ?: system("sans-serif", f.weight)
+        FontSource.FILE -> (if (f.localFontFile.isNotEmpty()) fromFile(File(fontsDir(ctx), f.localFontFile)) else null)
+            ?: system("sans-serif", f.weight)
     }
 
-    fun dateTypeface(ctx: Context, cfg: WidgetConfig): Typeface =
-        if (cfg.dateUsesClockFont) clockTypeface(ctx, cfg) else system("sans-serif", 500)
+    fun clockTypeface(ctx: Context, cfg: WidgetConfig): Typeface = typeface(ctx, cfg.clockFont)
+
+    fun dateTypeface(ctx: Context, cfg: WidgetConfig): Typeface = when (cfg.dateFontMode) {
+        DateFontMode.DEFAULT -> system("sans-serif", 500)
+        DateFontMode.CLOCK -> clockTypeface(ctx, cfg)
+        DateFontMode.CUSTOM -> typeface(ctx, cfg.dateFont)
+    }
 
     // ---------- Google Fonts catalogue (for exact names + type-ahead) ----------
 

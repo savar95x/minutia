@@ -3,6 +3,16 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.3.0] - 2026-11-14
+
+### Added
+- Separate font for the date: Default, Same as clock, or Custom. Custom has its own System / Google Fonts / File picker and weight.
+- Date font can be changed on the Analog style too.
+
+### Changed
+- The old "Use this font for the date too" switch is now the "Same as clock" option; existing widgets keep their look.
+- Weight slider is hidden for fonts loaded from a file (their weight is fixed).
+
 ## [1.2.0] - 2026-11-14
 
 ### Added
