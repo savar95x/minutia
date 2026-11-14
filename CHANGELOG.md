@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.4.3] - 2026-11-14
+
+### Fixed
+- Alignment buttons no longer show a checkmark, matching the Font and Date font buttons (selection is shown by colour).
+
 ## [1.4.2] - 2026-11-14
 
 ### Changed

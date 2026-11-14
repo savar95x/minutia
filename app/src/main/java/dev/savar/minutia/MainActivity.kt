@@ -527,6 +527,7 @@ private fun SettingsScreen(launchId: Int) {
                                 selected = cfg.align == a,
                                 onClick = { update(cfg.copy(align = a)) },
                                 shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
+                                icon = {}, // selection shown by colour only, like the font rows
                             ) { Text(a.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
                     }
