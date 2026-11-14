@@ -19,7 +19,7 @@ enum class FontSource(val label: String) {
 
 enum class DateFontMode(val label: String) {
     DEFAULT("Default"),
-    CLOCK("Same as clock"),
+    CLOCK("Clock"), // short: segment buttons are a third of the card wide
     CUSTOM("Custom"),
 }
 

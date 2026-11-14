@@ -88,6 +88,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.PaddingValues
@@ -394,7 +395,7 @@ private fun SettingsScreen(launchId: Int) {
                                         onClick = { update(cfg.copy(dateFontMode = m)) },
                                         shape = SegmentedButtonDefaults.itemShape(index = i, count = modes.size),
                                         icon = {},
-                                    ) { Text(m.label, maxLines = 1) }
+                                    ) { Text(m.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                 }
                             }
                             if (cfg.dateFontMode == DateFontMode.CUSTOM) {
@@ -466,7 +467,7 @@ private fun SettingsScreen(launchId: Int) {
                                 selected = cfg.align == a,
                                 onClick = { update(cfg.copy(align = a)) },
                                 shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
-                            ) { Text(a.label) }
+                            ) { Text(a.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -836,7 +837,7 @@ private fun FontEditor(
                     },
                     shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
                     icon = {},
-                ) { Text(src.label, maxLines = 1) }
+                ) { Text(src.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
         Spacer(Modifier.height(14.dp))

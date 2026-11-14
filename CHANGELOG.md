@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.3.1] - 2026-11-14
+
+### Fixed
+- "Same as clock" date-font option was cut off; it's now labelled "Clock". Labels that don't fit their button end in "…" instead of being clipped.
+
 ## [1.3.0] - 2026-11-14
 
 ### Added
@@ -10,7 +15,7 @@ Each `## [x.y.z]` section becomes the release notes on GitHub when that version 
 - Date font can be changed on the Analog style too.
 
 ### Changed
-- The old "Use this font for the date too" switch is now the "Same as clock" option; existing widgets keep their look.
+- The old "Use this font for the date too" switch is now the "Clock" option under Date font; existing widgets keep their look.
 - Weight slider is hidden for fonts loaded from a file (their weight is fixed).
 
 ## [1.2.0] - 2026-11-14
