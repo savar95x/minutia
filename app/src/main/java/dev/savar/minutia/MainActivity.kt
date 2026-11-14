@@ -11,6 +11,11 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
@@ -206,9 +211,10 @@ private fun parseHex(s: String): Int? {
     }
 }
 
+/** The widget's size on the home screen in dp, e.g. "300×140". */
 private fun widgetLabel(ctx: Context, id: Int, index: Int): String {
     val s = WidgetUpdater.size(ctx, id)
-    return "Widget ${index + 1}"
+    return "${s.wDp}×${s.hDp}"
 }
 
 @Composable
@@ -270,9 +276,30 @@ private fun SettingsScreen(launchId: Int) {
     }
     val settingsScroll = rememberScrollState()
     val density = LocalDensity.current
-    // The preview shrinks as the settings scroll, leaving more room for them.
-    val collapse by remember {
-        derivedStateOf { (settingsScroll.value / with(density) { 220.dp.toPx() }).coerceIn(0f, 1f) }
+    // Collapsing preview header: it absorbs the scroll first (so content moves 1:1 with the finger),
+    // shrinking from 200dp to 108dp, and grows back once the settings are scrolled to the top.
+    // Its height is read only in the layout phase, so scrolling doesn't recompose the screen.
+    val previewMaxPx = with(density) { 200.dp.toPx() }
+    val previewMinPx = with(density) { 108.dp.toPx() }
+    val previewPx = remember { mutableFloatStateOf(previewMaxPx) }
+    val previewConnection = remember(previewMaxPx, previewMinPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f) return Offset.Zero
+                val old = previewPx.floatValue
+                val new = (old + available.y).coerceAtLeast(previewMinPx)
+                previewPx.floatValue = new
+                return Offset(0f, new - old)
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y <= 0f) return Offset.Zero
+                val old = previewPx.floatValue
+                val new = (old + available.y).coerceAtMost(previewMaxPx)
+                previewPx.floatValue = new
+                return Offset(0f, new - old)
+            }
+        }
     }
 
     Scaffold(
@@ -305,7 +332,7 @@ private fun SettingsScreen(launchId: Int) {
             )
         },
     ) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
+        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding().nestedScroll(previewConnection)) {
 
             // ---------- live preview ----------
             val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
@@ -319,7 +346,11 @@ private fun SettingsScreen(launchId: Int) {
                 Modifier
                     .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
                     .fillMaxWidth()
-                    .height(lerp(200.dp, 108.dp, collapse))
+                    .layout { measurable, constraints ->
+                        val h = previewPx.floatValue.roundToInt()
+                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                        layout(placeable.width, h) { placeable.place(0, 0) }
+                    }
                     .clip(RoundedCornerShape(28.dp))
                     .background(bgBrush)
                     .clickable { lightPreview = !lightPreview },
@@ -371,7 +402,17 @@ private fun SettingsScreen(launchId: Int) {
                                 Chip(
                                     selected = id == selectedId,
                                     onClick = { selectedId = id },
-                                    label = { Text(widgetLabel(ctx, id, i)) },
+                                    label = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("Widget ${i + 1}")
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                widgetLabel(ctx, id, i),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    },
                                 )
                             }
                             if (pinSupported) {

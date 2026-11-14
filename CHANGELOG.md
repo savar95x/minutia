@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.6.1] - 2026-11-15
+
+### Fixed
+- Smoother collapsing preview: it now shrinks as part of the scroll (content moves with your finger instead of twice as fast) and no longer redraws the whole screen while scrolling.
+
+### Changed
+- Widget chips show the widget's size again, small and muted (e.g. "Widget 1  300×140").
+
 ## [1.6.0] - 2026-11-14
 
 ### Changed
