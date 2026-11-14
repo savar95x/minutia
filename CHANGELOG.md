@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.6.2] - 2026-11-15
+
+### Fixed
+- Preview card had no gap above it and sat under a differently tinted bar after scrolling. It now has even spacing, and the top bar keeps the page colour so the title and preview form one header.
+
 ## [1.6.1] - 2026-11-15
 
 ### Fixed

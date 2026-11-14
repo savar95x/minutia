@@ -329,6 +329,11 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 },
                 scrollBehavior = scrollBehavior,
+                // Same colour when scrolled, so the bar and the preview read as one header.
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
     ) { innerPadding ->
@@ -344,7 +349,7 @@ private fun SettingsScreen(launchId: Int) {
             val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
             Box(
                 Modifier
-                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     .fillMaxWidth()
                     .layout { measurable, constraints ->
                         val h = previewPx.floatValue.roundToInt()
