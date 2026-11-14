@@ -18,6 +18,7 @@ Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). P
 - `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity.
 
 ## Gotchas
+- **Google Fonts names are case-sensitive** in the CSS API (`fragment mono` → 400, `Fragment Mono` → 200). `FontManager` downloads `fonts.google.com/metadata/fonts` (~2.7 MB, ~1,960 families, cached weekly in `filesDir/fonts/catalogue.txt`) to map typed names to official ones and for type-ahead, then falls back to Title Case + known acronyms (IBM, DM, EB, PT…).
 - **Google Fonts format depends on User-Agent.** `curl/8.5.0` and an Android-4 UA get TTF; IE6 gets EOT and Safari 5 gets WOFF, which Android can't load. Files are validated by magic bytes (`00010000`/`OTTO`/`true`/`ttcf`). A CI step logs what each UA receives.
 - **Two widget providers**: `ClockWidgetProvider` (label U+2800, blank, so launchers like OxygenOS print no name under it) and `LabeledClockWidgetProvider` (label "Minutia"). A placed widget's label can't change at runtime, so the "Show name under widget" switch pins the other variant (new widget inherits the last-saved config). `WidgetUpdater.ids()` covers both; only the main provider receives TICK/system broadcasts and it updates all ids.
 - **Widget taps go through `TapActivity`** (Theme.NoDisplay trampoline), which resolves the clock at tap time: SHOW_ALARMS → known OEM clock packages → any launchable app whose package contains "clock". `TapAction.APP` launches a user-picked package. Needs the MAIN/LAUNCHER `<queries>` entry.

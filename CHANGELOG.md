@@ -3,6 +3,16 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.2.0] - 2026-11-14
+
+### Added
+- Font suggestions while you type: start typing a name and matching Google Fonts appear as chips.
+
+### Fixed
+- Google Fonts typed in any capitalisation now work ("fragment mono" → Fragment Mono). Google's font service is case-sensitive, so the app now looks up the official name.
+- Fonts that only come in one weight download fine whatever the weight slider says.
+- Clearer errors: "No Google Font called …, did you mean …?" instead of raw HTTP codes.
+
 ## [1.1.0] - 2026-11-14
 
 ### Added
