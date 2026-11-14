@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.7.0] - 2026-11-15
+
+### Changed
+- The full preview scrolls away with the settings (like Google's Wallpaper & style); the mini clock in the top bar is gone.
+
+### Added
+- "Pin preview" in the ⋮ menu keeps the full preview fixed at the top while settings scroll underneath (like widget editors).
+
 ## [1.6.4] - 2026-11-15
 
 ### Fixed

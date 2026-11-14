@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Checkbox
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.snapshotFlow
@@ -279,62 +281,37 @@ private fun SettingsScreen(launchId: Int) {
         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
     }
     val settingsScroll = rememberScrollState()
-    val density = LocalDensity.current
     val scheme = MaterialTheme.colorScheme
     val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
-    // The big preview is the first thing in the scrolling page. Once it has scrolled out of
-    // view, a small live copy takes the title's place in the top bar.
-    val heroPx = with(density) { 200.dp.toPx() }
-    // Hysteresis: show at 90% scrolled away, hide again below 60%, so it never flickers.
-    var showMini by remember { mutableStateOf(false) }
-    LaunchedEffect(settingsScroll, heroPx) {
-        snapshotFlow { settingsScroll.value }.collect { v ->
-            if (!showMini && v > heroPx * 0.9f) showMini = true
-            else if (showMini && v < heroPx * 0.6f) showMini = false
-        }
+    // App preference (not per widget): pinned preview stays at the top like a widget editor;
+    // otherwise it's the first item of the page and scrolls away like Wallpaper & style.
+    val uiPrefs = remember { ctx.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+    var pinPreview by remember { mutableStateOf(uiPrefs.getBoolean("pin_preview", false)) }
+    val previewCard: @Composable (Modifier) -> Unit = { mod ->
+        PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, mod)
     }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    // Fixed-height slot so swapping text <-> clock never shifts the bar.
-                    Box(Modifier.height(36.dp), contentAlignment = Alignment.CenterStart) {
-                        AnimatedContent(
-                            targetState = showMini,
-                            transitionSpec = {
-                                (fadeIn(tween(220, delayMillis = 60)) + slideInVertically(tween(260)) { it / 2 }) togetherWith
-                                    (fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it / 2 }) using
-                                    SizeTransform(clip = false)
-                            },
-                            contentAlignment = Alignment.CenterStart,
-                            label = "title",
-                        ) { mini ->
-                            if (mini) {
-                                val small = remember(cfg, minuteTick, fontVersion) {
-                                    ClockRenderer.renderMini(ctx, cfg, (64 * density.density).toInt(), density.density * 2f)
-                                        .asImageBitmap()
-                                }
-                                Image(
-                                    bitmap = small,
-                                    contentDescription = "Preview",
-                                    contentScale = ContentScale.Fit,
-                                    alignment = Alignment.CenterStart,
-                                    modifier = Modifier.height(30.dp).widthIn(max = 240.dp),
-                                )
-                            } else {
-                                Text("Minutia")
-                            }
-                        }
-                    }
-                },
+                title = { Text("Minutia") },
                 actions = {
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Pin preview") },
+                                leadingIcon = { Icon(Icons.Default.Place, contentDescription = null) },
+                                trailingIcon = { Checkbox(checked = pinPreview, onCheckedChange = null) },
+                                onClick = {
+                                    pinPreview = !pinPreview
+                                    uiPrefs.edit().putBoolean("pin_preview", pinPreview).apply()
+                                    menuOpen = false
+                                },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Reset widget…") },
                                 leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
@@ -351,10 +328,19 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 },
                 scrollBehavior = scrollBehavior,
+                // With a pinned preview nothing scrolls under the bar, so it shouldn't tint.
+                colors = if (pinPreview) {
+                    TopAppBarDefaults.topAppBarColors(scrolledContainerColor = MaterialTheme.colorScheme.surface)
+                } else {
+                    TopAppBarDefaults.topAppBarColors()
+                },
             )
         },
     ) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
+            if (pinPreview) {
+                previewCard(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp))
+            }
             Column(
                 Modifier
                     .weight(1f)
@@ -363,40 +349,7 @@ private fun SettingsScreen(launchId: Int) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // ---------- live preview ----------
-                // Wallpaper gradient blends between dark and light when tapped.
-                val g1 by animateColorAsState(if (lightPreview) Color(0xFFE9E4DA) else scheme.primaryContainer, tween(450), label = "g1")
-                val g2 by animateColorAsState(if (lightPreview) Color(0xFFC9D6E3) else Color(0xFF1A1C22), tween(450), label = "g2")
-                val g3 by animateColorAsState(if (lightPreview) Color(0xFFF3E1D3) else scheme.tertiaryContainer, tween(450), label = "g3")
-                val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
-                Box(
-                    Modifier
-                        .padding(top = 4.dp)
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(MaterialTheme.shapes.extraLarge)
-                        .background(bgBrush)
-                        .clickable { lightPreview = !lightPreview },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // Crossfade when the style changes; other edits update instantly.
-                    Crossfade(targetState = cfg.style, animationSpec = tween(320), label = "previewStyle") { st ->
-                        val preview = remember(cfg, st, size, minuteTick, fontVersion) {
-                            ClockRenderer.render(ctx, cfg.copy(style = st), size.w, size.h, size.dp).asImageBitmap()
-                        }
-                        Image(
-                            bitmap = preview,
-                            contentDescription = "Preview",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxSize().padding(14.dp),
-                        )
-                    }
-                    Text(
-                        if (lightPreview) "☀" else "☾",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (lightPreview) Color(0x99000000) else Color(0x99FFFFFF),
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                    )
-                }
+                if (!pinPreview) previewCard(Modifier.padding(top = 4.dp))
 
                 // ---------- which widget ----------
                 val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
@@ -1198,4 +1151,51 @@ private fun Chip(selected: Boolean, onClick: () -> Unit, label: @Composable () -
             null
         },
     )
+}
+
+/** The live widget preview on a wallpaper-like gradient; tap toggles a light/dark backdrop. */
+@Composable
+private fun PreviewCard(
+    cfg: WidgetConfig,
+    size: WidgetUpdater.SizePx,
+    tick: Int,
+    fontVersion: Int,
+    light: Boolean,
+    onToggleLight: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    // Wallpaper gradient blends between dark and light when tapped.
+    val g1 by animateColorAsState(if (light) Color(0xFFE9E4DA) else scheme.primaryContainer, tween(450), label = "g1")
+    val g2 by animateColorAsState(if (light) Color(0xFFC9D6E3) else Color(0xFF1A1C22), tween(450), label = "g2")
+    val g3 by animateColorAsState(if (light) Color(0xFFF3E1D3) else scheme.tertiaryContainer, tween(450), label = "g3")
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(Brush.linearGradient(listOf(g1, g2, g3)))
+            .clickable(onClick = onToggleLight),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Crossfade when the style changes; other edits update instantly.
+        Crossfade(targetState = cfg.style, animationSpec = tween(320), label = "previewStyle") { st ->
+            val preview = remember(cfg, st, size, tick, fontVersion) {
+                ClockRenderer.render(ctx, cfg.copy(style = st), size.w, size.h, size.dp).asImageBitmap()
+            }
+            Image(
+                bitmap = preview,
+                contentDescription = "Preview",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(14.dp),
+            )
+        }
+        Text(
+            if (light) "☀" else "☾",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (light) Color(0x99000000) else Color(0x99FFFFFF),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+        )
+    }
 }

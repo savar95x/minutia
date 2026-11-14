@@ -131,40 +131,6 @@ object ClockRenderer {
         return bmp
     }
 
-    /**
-     * Just the time (no date, background, margins or shadow), cropped tight to the ink.
-     * Used in the app bar so it lines up with the title.
-     */
-    fun renderMini(ctx: Context, cfg: WidgetConfig, heightPx: Int, dp: Float): Bitmap {
-        val c = cfg.copy(
-            showDate = false, background = false, shadow = false,
-            align = HAlign.START, sizePercent = 100,
-        )
-        val w = if (cfg.style == ClockStyle.ANALOG) heightPx else heightPx * 6
-        return trimTransparent(render(ctx, c, w, heightPx, dp))
-    }
-
-    private fun trimTransparent(b: Bitmap): Bitmap {
-        val w = b.width
-        val h = b.height
-        val px = IntArray(w * h)
-        b.getPixels(px, 0, w, 0, 0, w, h)
-        var minX = w; var minY = h; var maxX = -1; var maxY = -1
-        for (y in 0 until h) {
-            val row = y * w
-            for (x in 0 until w) {
-                if ((px[row + x] ushr 24) > 12) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-        if (maxX < 0) return b
-        return Bitmap.createBitmap(b, minX, minY, maxX - minX + 1, maxY - minY + 1)
-    }
-
     // ---------- helpers ----------
 
     private fun withAlpha(color: Int, percent: Int): Int =
