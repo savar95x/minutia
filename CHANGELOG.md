@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.6.3] - 2026-11-15
+
+### Changed
+- The preview now scrolls with the settings like the rest of the page. Once it's out of view, a small live copy of the clock appears in the top bar in place of the title, so you always see the clock without a big card taking up space.
+
 ## [1.6.2] - 2026-11-15
 
 ### Fixed

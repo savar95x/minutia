@@ -142,6 +142,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
@@ -276,37 +277,35 @@ private fun SettingsScreen(launchId: Int) {
     }
     val settingsScroll = rememberScrollState()
     val density = LocalDensity.current
-    // Collapsing preview header: it absorbs the scroll first (so content moves 1:1 with the finger),
-    // shrinking from 200dp to 108dp, and grows back once the settings are scrolled to the top.
-    // Its height is read only in the layout phase, so scrolling doesn't recompose the screen.
-    val previewMaxPx = with(density) { 200.dp.toPx() }
-    val previewMinPx = with(density) { 108.dp.toPx() }
-    val previewPx = remember { mutableFloatStateOf(previewMaxPx) }
-    val previewConnection = remember(previewMaxPx, previewMinPx) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y >= 0f) return Offset.Zero
-                val old = previewPx.floatValue
-                val new = (old + available.y).coerceAtLeast(previewMinPx)
-                previewPx.floatValue = new
-                return Offset(0f, new - old)
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (available.y <= 0f) return Offset.Zero
-                val old = previewPx.floatValue
-                val new = (old + available.y).coerceAtMost(previewMaxPx)
-                previewPx.floatValue = new
-                return Offset(0f, new - old)
-            }
-        }
-    }
+    val scheme = MaterialTheme.colorScheme
+    val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
+    // The big preview is the first thing in the scrolling page. Once it has scrolled out of
+    // view, a small live copy takes the title's place in the top bar.
+    val heroPx = with(density) { 200.dp.toPx() }
+    val previewScrolledAway by remember { derivedStateOf { settingsScroll.value > heroPx * 0.85f } }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Minutia") },
+                title = {
+                    Crossfade(targetState = previewScrolledAway, animationSpec = tween(250), label = "title") { mini ->
+                        if (mini) {
+                            val small = remember(cfg, size, minuteTick, fontVersion) {
+                                ClockRenderer.render(ctx, cfg, size.w, size.h, size.dp).asImageBitmap()
+                            }
+                            Image(
+                                bitmap = small,
+                                contentDescription = "Preview",
+                                contentScale = ContentScale.Fit,
+                                alignment = Alignment.CenterStart,
+                                modifier = Modifier.height(44.dp).widthIn(max = 220.dp),
+                            )
+                        } else {
+                            Text("Minutia")
+                        }
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
@@ -329,58 +328,10 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                // Same colour when scrolled, so the bar and the preview read as one header.
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
     ) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding().nestedScroll(previewConnection)) {
-
-            // ---------- live preview ----------
-            val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
-            val scheme = MaterialTheme.colorScheme
-            // Wallpaper gradient blends between dark and light when tapped.
-            val g1 by animateColorAsState(if (lightPreview) Color(0xFFE9E4DA) else scheme.primaryContainer, tween(450), label = "g1")
-            val g2 by animateColorAsState(if (lightPreview) Color(0xFFC9D6E3) else Color(0xFF1A1C22), tween(450), label = "g2")
-            val g3 by animateColorAsState(if (lightPreview) Color(0xFFF3E1D3) else scheme.tertiaryContainer, tween(450), label = "g3")
-            val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
-            Box(
-                Modifier
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-                    .fillMaxWidth()
-                    .layout { measurable, constraints ->
-                        val h = previewPx.floatValue.roundToInt()
-                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
-                        layout(placeable.width, h) { placeable.place(0, 0) }
-                    }
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(bgBrush)
-                    .clickable { lightPreview = !lightPreview },
-                contentAlignment = Alignment.Center,
-            ) {
-                // Crossfade when the style changes; other edits update instantly.
-                Crossfade(targetState = cfg.style, animationSpec = tween(320), label = "previewStyle") { st ->
-                    val preview = remember(cfg, st, size, minuteTick, fontVersion) {
-                        ClockRenderer.render(ctx, cfg.copy(style = st), size.w, size.h, size.dp).asImageBitmap()
-                    }
-                    Image(
-                        bitmap = preview,
-                        contentDescription = "Preview",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
-                    )
-                }
-                Text(
-                    if (lightPreview) "☀" else "☾",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (lightPreview) Color(0x99000000) else Color(0x99FFFFFF),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
-                )
-            }
-
+        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
             Column(
                 Modifier
                     .weight(1f)
@@ -388,6 +339,42 @@ private fun SettingsScreen(launchId: Int) {
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // ---------- live preview ----------
+                // Wallpaper gradient blends between dark and light when tapped.
+                val g1 by animateColorAsState(if (lightPreview) Color(0xFFE9E4DA) else scheme.primaryContainer, tween(450), label = "g1")
+                val g2 by animateColorAsState(if (lightPreview) Color(0xFFC9D6E3) else Color(0xFF1A1C22), tween(450), label = "g2")
+                val g3 by animateColorAsState(if (lightPreview) Color(0xFFF3E1D3) else scheme.tertiaryContainer, tween(450), label = "g3")
+                val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
+                Box(
+                    Modifier
+                        .padding(top = 4.dp)
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(bgBrush)
+                        .clickable { lightPreview = !lightPreview },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Crossfade when the style changes; other edits update instantly.
+                    Crossfade(targetState = cfg.style, animationSpec = tween(320), label = "previewStyle") { st ->
+                        val preview = remember(cfg, st, size, minuteTick, fontVersion) {
+                            ClockRenderer.render(ctx, cfg.copy(style = st), size.w, size.h, size.dp).asImageBitmap()
+                        }
+                        Image(
+                            bitmap = preview,
+                            contentDescription = "Preview",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize().padding(14.dp),
+                        )
+                    }
+                    Text(
+                        if (lightPreview) "☀" else "☾",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (lightPreview) Color(0x99000000) else Color(0x99FFFFFF),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                    )
+                }
+
                 // ---------- which widget ----------
                 val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
                 if (widgetIds.isEmpty()) {
