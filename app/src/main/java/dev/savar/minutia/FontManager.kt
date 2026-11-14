@@ -94,16 +94,14 @@ object FontManager {
                 "https://fonts.googleapis.com/css2?family=$enc",
             )
             var lastError: Exception = Exception("Font \"$name\" not found on Google Fonts")
-            for (cssUrl in cssUrls) {
+            // Google picks the font format from the User-Agent. These get plain TTF.
+            for (ua in USER_AGENTS) for (cssUrl in cssUrls) {
                 try {
-                    val css = httpGetText(cssUrl)
-                    val fontUrl = Regex("""url\((https://[^)\s]+)\)\s*format\('(truetype|opentype)'\)""")
-                        .find(css)?.groupValues?.get(1)
-                        ?: Regex("""url\((https://fonts\.gstatic\.com/[^)\s]+\.(?:ttf|otf))\)""")
-                            .find(css)?.groupValues?.get(1)
+                    val css = httpGetText(cssUrl, ua)
+                    val fontUrl = Regex("""src:\s*url\(['"]?([^)'"\s]+)['"]?\)""").find(css)?.groupValues?.get(1)
                         ?: continue
                     val tmp = File(target.parentFile, target.name + ".part")
-                    httpDownload(fontUrl, tmp)
+                    httpDownload(fontUrl, tmp, ua)
                     if (!looksLikeFont(tmp)) {
                         tmp.delete(); continue
                     }
@@ -145,16 +143,21 @@ object FontManager {
         return isTrueType || tag == "OTTO" || tag == "true" || tag == "ttcf"
     }
 
-    private fun open(url: String): HttpURLConnection =
+    private val USER_AGENTS = listOf(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.59.8 (KHTML, like Gecko) Version/5.1.9 Safari/534.59.8",
+        "curl/8.5.0",
+        "Mozilla/5.0 (Linux; U; Android 4.0.3; en-us) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30",
+    )
+
+    private fun open(url: String, ua: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 20000
-            // An old UA makes Google Fonts return TTF instead of WOFF2.
-            setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0)")
+            setRequestProperty("User-Agent", ua)
         }
 
-    private fun httpGetText(url: String): String {
-        val c = open(url)
+    private fun httpGetText(url: String, ua: String): String {
+        val c = open(url, ua)
         try {
             if (c.responseCode != 200) throw Exception("Font not found (HTTP ${c.responseCode})")
             return c.inputStream.bufferedReader().readText()
@@ -163,8 +166,8 @@ object FontManager {
         }
     }
 
-    private fun httpDownload(url: String, dest: File) {
-        val c = open(url)
+    private fun httpDownload(url: String, dest: File, ua: String) {
+        val c = open(url, ua)
         try {
             if (c.responseCode != 200) throw Exception("Download failed (HTTP ${c.responseCode})")
             c.inputStream.use { input -> dest.outputStream().use { input.copyTo(it) } }

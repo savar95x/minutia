@@ -23,9 +23,16 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Sanity-check Google Fonts CSS format
+      - name: Check which user-agents get TTF from Google Fonts
         continue-on-error: true
-        run: curl -s -A "Mozilla/4.0 (compatible; MSIE 6.0)" "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700" | head -12
+        run: |
+          for ua in "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.59.8 (KHTML, like Gecko) Version/5.1.9 Safari/534.59.8" "curl/8.5.0" "Mozilla/5.0 (Linux; U; Android 4.0.3; en-us) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30"; do
+            for fam in "Space+Grotesk:wght@700" "Bebas+Neue"; do
+              url=$(curl -s -A "$ua" "https://fonts.googleapis.com/css2?family=$fam" | grep -o "src: *url([^)]*)" | head -1 | sed -E "s/src: *url\(['\"]?([^)'\"]*).*/\1/")
+              magic=$(curl -s -A "$ua" "$url" | head -c 4 | xxd -p)
+              echo "UA=${ua:0:40} | $fam | magic=$magic | $url"
+            done
+          done
 
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace
