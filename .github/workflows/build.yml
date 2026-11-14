@@ -35,6 +35,20 @@ jobs:
             echo "v$v is new; this run will publish it."
           fi
 
+      - name: Check Google Fonts endpoints the app relies on
+        continue-on-error: true
+        run: |
+          UA="curl/8.5.0"
+          meta=$(curl -s -A "$UA" https://fonts.google.com/metadata/fonts)
+          echo "catalogue: $(echo -n "$meta" | wc -c) bytes, $(echo "$meta" | grep -o '"family": *"[^"]*"' | sort -u | wc -l) families"
+          echo "$meta" | grep -o '"family": *"Fragment Mono"' | head -1
+          for fam in "fragment+mono" "Fragment+Mono" "Fragment+Mono:wght@700" "Space+Grotesk:wght@700"; do
+            code=$(curl -s -o /tmp/css -w '%{http_code}' -A "$UA" "https://fonts.googleapis.com/css2?family=$fam")
+            url=$(grep -o "src: *url([^)]*)" /tmp/css | head -1 | sed -E "s/src: *url\(['\"]?([^)'\"]*).*/\1/")
+            magic=$([ -n "$url" ] && curl -s -A "$UA" "$url" | head -c 4 | xxd -p)
+            echo "$fam -> HTTP $code, font magic: ${magic:-none}"
+          done
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

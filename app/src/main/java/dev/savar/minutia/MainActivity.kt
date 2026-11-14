@@ -91,6 +91,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
@@ -210,26 +211,32 @@ private fun SettingsScreen(launchId: Int) {
     // ---------- font download state ----------
     var fontQuery by remember(selectedId) { mutableStateOf(cfg.googleFamily) }
     var fontTab by remember(selectedId) { mutableStateOf(cfg.fontSource) }
+    var catalogueVersion by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        FontManager.loadCatalogue(ctx)
+        catalogueVersion++
+    }
     var showAppPicker by remember { mutableStateOf(false) }
     var nameHint by remember { mutableStateOf(false) }
     var fontStatus by remember { mutableStateOf<String?>(null) }
     var downloading by remember { mutableStateOf(false) }
 
     fun fetchGoogle(name: String, weight: Int = cfg.fontWeight) {
-        val family = name.trim()
-        if (family.isEmpty() || downloading) return
+        val typed = name.trim()
+        if (typed.isEmpty() || downloading) return
         downloading = true
-        fontStatus = "Downloading $family…"
+        fontStatus = "Downloading $typed…"
         scope.launch {
-            val r = FontManager.downloadGoogleFont(ctx, family, weight)
+            val r = FontManager.downloadGoogleFont(ctx, typed, weight)
             downloading = false
-            r.onSuccess {
+            r.onSuccess { family ->
                 update(cfg.copy(fontSource = FontSource.GOOGLE, googleFamily = family, fontWeight = weight))
                 fontTab = FontSource.GOOGLE
+                fontQuery = family
                 fontVersion++
                 fontStatus = "Using $family"
             }.onFailure {
-                fontStatus = "Couldn't get “$family”. Check the spelling on fonts.google.com and your internet. (${it.message})"
+                fontStatus = it.message ?: "Couldn't get “$typed”."
             }
         }
     }
@@ -465,15 +472,20 @@ private fun SettingsScreen(launchId: Int) {
                                     keyboardActions = KeyboardActions(onDone = { fetchGoogle(fontQuery) }),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                                val matches = remember(fontQuery, catalogueVersion) { FontManager.suggest(ctx, fontQuery) }
+                                val typing = fontQuery.isNotBlank() && !fontQuery.trim().equals(cfg.googleFamily, ignoreCase = true)
+                                val chips = if (typing && matches.isNotEmpty()) matches else FontManager.googleSuggestions
                                 Text(
-                                    "Popular picks",
+                                    if (typing && matches.isNotEmpty()) "Matching fonts" else "Popular picks",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = scheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
                                 )
                                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        items(FontManager.googleSuggestions) { fam ->
+                                    // Fresh scroll position whenever the list switches between matches and popular picks.
+                                    val rowState = remember(chips) { LazyListState() }
+                                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(chips) { fam ->
                                             FilterChip(
                                                 selected = cfg.fontSource == FontSource.GOOGLE &&
                                                     cfg.googleFamily.equals(fam, ignoreCase = true),

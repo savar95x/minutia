@@ -76,44 +76,124 @@ object FontManager {
     fun dateTypeface(ctx: Context, cfg: WidgetConfig): Typeface =
         if (cfg.dateUsesClockFont) clockTypeface(ctx, cfg) else system("sans-serif", 500)
 
-    /**
-     * Downloads a Google Fonts family at the given weight. Google serves plain TTF files
-     * to simple user agents, which Android can load directly.
-     */
-    suspend fun downloadGoogleFont(ctx: Context, family: String, weight: Int): Result<File> =
-        withContext(Dispatchers.IO) {
-            val name = family.trim()
-            if (name.isEmpty()) return@withContext Result.failure(Exception("Type a font name"))
-            val target = googleFile(ctx, name, weight)
-            if (target.exists() && target.length() > 0) return@withContext Result.success(target)
+    // ---------- Google Fonts catalogue (for exact names + type-ahead) ----------
 
-            val enc = URLEncoder.encode(name, "UTF-8")
-            val cssUrls = listOf(
-                "https://fonts.googleapis.com/css2?family=$enc:wght@$weight",
-                "https://fonts.googleapis.com/css?family=$enc:$weight",
-                "https://fonts.googleapis.com/css2?family=$enc",
-            )
-            var lastError: Exception = Exception("Font \"$name\" not found on Google Fonts")
-            // Google picks the font format from the User-Agent. These get plain TTF.
-            for (ua in USER_AGENTS) for (cssUrl in cssUrls) {
-                try {
-                    val css = httpGetText(cssUrl, ua)
-                    val fontUrl = Regex("""src:\s*url\(['"]?([^)'"\s]+)['"]?\)""").find(css)?.groupValues?.get(1)
-                        ?: continue
-                    val tmp = File(target.parentFile, target.name + ".part")
-                    httpDownload(fontUrl, tmp, ua)
-                    if (!looksLikeFont(tmp)) {
-                        tmp.delete(); continue
+    private const val CATALOGUE_URL = "https://fonts.google.com/metadata/fonts"
+    private const val CATALOGUE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+
+    @Volatile private var catalogue: List<String>? = null
+
+    private fun catalogueFile(ctx: Context) = File(fontsDir(ctx), "catalogue.txt")
+
+    /** Family names already on disk (may be empty until [loadCatalogue] has run once). */
+    fun cachedCatalogue(ctx: Context): List<String> {
+        catalogue?.let { return it }
+        val f = catalogueFile(ctx)
+        if (!f.exists()) return emptyList()
+        return f.readLines().filter { it.isNotBlank() }.also { catalogue = it }
+    }
+
+    /** Downloads Google's list of ~1,900 family names at most once a week. Never throws. */
+    suspend fun loadCatalogue(ctx: Context): List<String> = withContext(Dispatchers.IO) {
+        val f = catalogueFile(ctx)
+        val fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < CATALOGUE_MAX_AGE_MS
+        if (!fresh) {
+            try {
+                val text = httpGetText(CATALOGUE_URL, USER_AGENTS[0])
+                val names = Regex(""""family"\s*:\s*"([^"]+)"""").findAll(text)
+                    .map { it.groupValues[1] }.distinct().sorted().toList()
+                if (names.size > 500) {
+                    f.writeText(names.joinToString("\n"))
+                    catalogue = names
+                }
+            } catch (e: Exception) {
+                // Offline or endpoint changed: fall back to the cached list / name guessing.
+            }
+        }
+        cachedCatalogue(ctx)
+    }
+
+    private fun squash(s: String) = s.lowercase().replace(Regex("[^a-z0-9]"), "")
+
+    /** Type-ahead: names starting with the query first, then names containing it. Case and spaces ignored. */
+    fun suggest(ctx: Context, query: String, limit: Int = 10): List<String> {
+        val q = squash(query)
+        if (q.length < 2) return emptyList()
+        val all = cachedCatalogue(ctx)
+        val starts = all.filter { squash(it).startsWith(q) }
+        val contains = all.filter { val n = squash(it); !n.startsWith(q) && n.contains(q) }
+        return (starts + contains).take(limit)
+    }
+
+    private val UPPER_WORDS = setOf("IBM", "DM", "EB", "PT", "BIZ", "UD", "IM", "SC", "JP", "KR", "TC", "HK", "SIL", "VT323")
+
+    /** Names to try for what the user typed: the catalogue's exact spelling first, then sensible capitalisations. */
+    private fun nameCandidates(ctx: Context, typed: String): List<String> {
+        val t = typed.trim().replace(Regex("\\s+"), " ")
+        val all = cachedCatalogue(ctx)
+        val exact = all.firstOrNull { it.equals(t, ignoreCase = true) }
+            ?: all.firstOrNull { squash(it) == squash(t) }
+        val title = t.split(" ").joinToString(" ") { w ->
+            if (w.uppercase() in UPPER_WORDS) w.uppercase()
+            else w.lowercase().replaceFirstChar { it.uppercase() }
+        }
+        return listOfNotNull(exact, t, title).distinct()
+    }
+
+    /**
+     * Downloads a Google Fonts family at the given weight and returns its official name
+     * (e.g. "fragment mono" -> "Fragment Mono"; the CSS API is case-sensitive).
+     * Google serves plain TTF to simple user agents, which Android can load directly.
+     */
+    suspend fun downloadGoogleFont(ctx: Context, family: String, weight: Int): Result<String> =
+        withContext(Dispatchers.IO) {
+            val typed = family.trim()
+            if (typed.isEmpty()) return@withContext Result.failure(Exception("Type a font name"))
+            val catalogue = loadCatalogue(ctx)
+            val names = nameCandidates(ctx, typed)
+            val target = googleFile(ctx, names.first(), weight)
+            if (target.exists() && target.length() > 0) return@withContext Result.success(names.first())
+
+            var networkError: Exception? = null
+            for (name in names) {
+                val enc = URLEncoder.encode(name, "UTF-8")
+                val cssUrls = listOf(
+                    "https://fonts.googleapis.com/css2?family=$enc:wght@$weight",
+                    "https://fonts.googleapis.com/css2?family=$enc",
+                    "https://fonts.googleapis.com/css?family=$enc:$weight",
+                )
+                // Google picks the font format from the User-Agent. These get plain TTF.
+                for (ua in USER_AGENTS) for (cssUrl in cssUrls) {
+                    try {
+                        val css = httpGetText(cssUrl, ua)
+                        val fontUrl = Regex("""src:\s*url\(['"]?([^)'"\s]+)['"]?\)""").find(css)?.groupValues?.get(1)
+                            ?: continue
+                        val tmp = File(target.parentFile, target.name + ".part")
+                        httpDownload(fontUrl, tmp, ua)
+                        if (!looksLikeFont(tmp)) {
+                            tmp.delete(); continue
+                        }
+                        target.delete()
+                        tmp.renameTo(target)
+                        memCache.remove(target.absolutePath)
+                        return@withContext Result.success(name)
+                    } catch (e: HttpStatusException) {
+                        // 400 = no such family / weight: try the next URL or spelling.
+                    } catch (e: Exception) {
+                        networkError = e
                     }
-                    target.delete()
-                    tmp.renameTo(target)
-                    memCache.remove(target.absolutePath)
-                    return@withContext Result.success(target)
-                } catch (e: Exception) {
-                    lastError = e
                 }
             }
-            Result.failure(lastError)
+            val msg = when {
+                networkError != null && catalogue.isEmpty() ->
+                    "Couldn't reach Google Fonts. Check your internet and try again."
+                else -> {
+                    val close = suggest(ctx, typed, 3)
+                    if (close.isNotEmpty()) "No Google Font called “$typed”. Did you mean ${close.joinToString(", ")}?"
+                    else "No Google Font called “$typed”. Check the name on fonts.google.com."
+                }
+            }
+            Result.failure(Exception(msg))
         }
 
     /** Copies a user-picked .ttf/.otf into app storage. Returns the stored file name. */
@@ -159,7 +239,7 @@ object FontManager {
     private fun httpGetText(url: String, ua: String): String {
         val c = open(url, ua)
         try {
-            if (c.responseCode != 200) throw Exception("Font not found (HTTP ${c.responseCode})")
+            if (c.responseCode != 200) throw HttpStatusException(c.responseCode)
             return c.inputStream.bufferedReader().readText()
         } finally {
             c.disconnect()
@@ -169,10 +249,12 @@ object FontManager {
     private fun httpDownload(url: String, dest: File, ua: String) {
         val c = open(url, ua)
         try {
-            if (c.responseCode != 200) throw Exception("Download failed (HTTP ${c.responseCode})")
+            if (c.responseCode != 200) throw HttpStatusException(c.responseCode)
             c.inputStream.use { input -> dest.outputStream().use { input.copyTo(it) } }
         } finally {
             c.disconnect()
         }
     }
 }
+
+class HttpStatusException(val code: Int) : Exception("HTTP $code")
