@@ -3,6 +3,12 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.4.1] - 2026-11-14
+
+### Changed
+- The curated font picks are now fixed: always first, always in the same order, never replaced by recent fonts. Fragment Mono joins them as the third pick.
+- Fonts you search for are added after the curated picks, each new one at the end of the row (up to 50 kept).
+
 ## [1.4.0] - 2026-11-14
 
 ### Added

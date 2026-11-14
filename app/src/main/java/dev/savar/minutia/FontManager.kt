@@ -22,8 +22,9 @@ object FontManager {
     )
 
     /** A curated set that look great as clocks. Any Google Fonts family name works. */
+    // Fixed order, never reordered or replaced by recents. Fragment Mono stays third.
     val googleSuggestions = listOf(
-        "Space Grotesk", "Bebas Neue", "Anton", "Outfit", "Unbounded", "Syne",
+        "Space Grotesk", "Bebas Neue", "Fragment Mono", "Anton", "Outfit", "Unbounded", "Syne",
         "Archivo Black", "Big Shoulders Display", "Michroma", "Orbitron", "Righteous",
         "Bungee", "Monoton", "Rubik Mono One", "Major Mono Display", "JetBrains Mono",
         "Space Mono", "DM Serif Display", "Instrument Serif", "Playfair Display",
@@ -43,7 +44,9 @@ object FontManager {
     fun recentFonts(ctx: Context): List<String> =
         (prefs(ctx).getString(RECENT_KEY, "") ?: "").split('\n').filter { it.isNotBlank() }
 
+    /** Remembers a searched font. Curated picks are always shown already, so they're not stored. */
     fun addRecent(ctx: Context, family: String) {
+        if (googleSuggestions.any { it.equals(family, ignoreCase = true) }) return
         val list = (listOf(family) + recentFonts(ctx).filterNot { it.equals(family, ignoreCase = true) })
             .take(MAX_RECENT)
         prefs(ctx).edit().putString(RECENT_KEY, list.joinToString("\n")).apply()

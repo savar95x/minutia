@@ -939,16 +939,19 @@ private fun FontEditor(
                 )
                 val matches = remember(query, catalogueVersion) { FontManager.suggest(ctx, query) }
                 val typing = query.isNotBlank() && !query.trim().equals(spec.googleFamily, ignoreCase = true)
-                // Recently used fonts first (newest first), then the curated picks.
-                val recents = remember(recentKey) { FontManager.recentFonts(ctx) }
-                val everyday = remember(recents) {
-                    recents + FontManager.googleSuggestions.filterNot { p -> recents.any { it.equals(p, ignoreCase = true) } }
+                // Curated picks always come first, in a fixed order. Fonts you've searched for follow,
+                // oldest to newest, so the latest one is the last chip (up to 50 kept).
+                val recents = remember(recentKey) {
+                    FontManager.recentFonts(ctx)
+                        .filterNot { r -> FontManager.googleSuggestions.any { it.equals(r, ignoreCase = true) } }
+                        .reversed()
                 }
+                val everyday = remember(recents) { FontManager.googleSuggestions + recents }
                 val chips = if (typing && matches.isNotEmpty()) matches else everyday
                 Text(
                     when {
                         typing && matches.isNotEmpty() -> "Matching fonts"
-                        recents.isNotEmpty() -> "Recent & popular"
+                        recents.isNotEmpty() -> "Popular picks, then your recent fonts"
                         else -> "Popular picks"
                     },
                     style = MaterialTheme.typography.labelMedium,
