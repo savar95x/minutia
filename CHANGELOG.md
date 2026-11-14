@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.6.0] - 2026-11-14
+
+### Changed
+- More Material 3: large app bar that collapses on scroll, grouped settings sections, standard segmented buttons (animated check + fill), filter chips with a check, switches with a check icon.
+- The clock preview shrinks as you scroll, leaving more room for settings.
+- Battery status is a proper list row with an icon and a Fix button.
+- Reset moved to the ⋮ menu and now asks for confirmation. Version is shown there too.
+- Built with the latest Material 3 / Compose (BOM 2026.09.00), Android Gradle Plugin 9.5 and Kotlin 2.4.
+
 ## [1.5.1] - 2026-11-14
 
 ### Changed

@@ -11,6 +11,29 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.lerp
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -239,14 +262,50 @@ private fun SettingsScreen(launchId: Int) {
     var resetCount by remember { mutableIntStateOf(0) }
     val haptics = LocalHapticFeedback.current
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
-            Text(
-                "Minutia",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 20.dp, top = 12.dp, end = 20.dp),
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
+    val version = remember {
+        runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
+    }
+    val settingsScroll = rememberScrollState()
+    val density = LocalDensity.current
+    // The preview shrinks as the settings scroll, leaving more room for them.
+    val collapse by remember {
+        derivedStateOf { (settingsScroll.value / with(density) { 220.dp.toPx() }).coerceIn(0f, 1f) }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = { Text("Minutia") },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Reset widget…") },
+                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                                onClick = { menuOpen = false; confirmReset = true },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Version $version") },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                onClick = {},
+                                enabled = false,
+                            )
+                        }
+                    }
+                },
+                scrollBehavior = scrollBehavior,
             )
+        },
+    ) { innerPadding ->
+        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
 
             // ---------- live preview ----------
             val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
@@ -258,9 +317,9 @@ private fun SettingsScreen(launchId: Int) {
             val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
             Box(
                 Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(lerp(200.dp, 108.dp, collapse))
                     .clip(RoundedCornerShape(28.dp))
                     .background(bgBrush)
                     .clickable { lightPreview = !lightPreview },
@@ -289,10 +348,9 @@ private fun SettingsScreen(launchId: Int) {
             Column(
                 Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .verticalScroll(settingsScroll)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // ---------- which widget ----------
                 val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
@@ -310,7 +368,7 @@ private fun SettingsScreen(launchId: Int) {
                     Section("Editing") {
                         ChipFlow {
                             widgetIds.forEachIndexed { i, id ->
-                                FilterChip(
+                                Chip(
                                     selected = id == selectedId,
                                     onClick = { selectedId = id },
                                     label = { Text(widgetLabel(ctx, id, i)) },
@@ -414,7 +472,7 @@ private fun SettingsScreen(launchId: Int) {
                             val modes = DateFontMode.entries.filter {
                                 it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
                             }
-                            SlidingSegmented(modes, cfg.dateFontMode, { it.label }) { update(cfg.copy(dateFontMode = it)) }
+                            Segmented(modes, cfg.dateFontMode, { it.label }) { update(cfg.copy(dateFontMode = it)) }
                             Reveal(cfg.dateFontMode == DateFontMode.CUSTOM) {
                                 Spacer(Modifier.height(14.dp))
                                 FontEditor(
@@ -461,13 +519,13 @@ private fun SettingsScreen(launchId: Int) {
                         ChipFlow {
                             DateFormats.PRESETS.forEach { f ->
                                 val sample = remember(f, now) { SimpleDateFormat(f, Locale.getDefault()).format(now) }
-                                FilterChip(
+                                Chip(
                                     selected = !customOpen && cfg.dateFormat == f,
                                     onClick = { customOpen = false; update(cfg.copy(dateFormat = f)) },
                                     label = { Text(sample) },
                                 )
                             }
-                            FilterChip(
+                            Chip(
                                 selected = customOpen,
                                 onClick = {
                                     customOpen = true
@@ -538,7 +596,7 @@ private fun SettingsScreen(launchId: Int) {
                             onChange = { setLocal(cfg.copy(letterSpacing = it)) }, onDone = { commit() })
                     }
                     Spacer(Modifier.height(4.dp))
-                    SlidingSegmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
+                    Segmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
                     Spacer(Modifier.height(6.dp))
                     SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled face" else "Background", cfg.background) {
                         update(cfg.copy(background = it))
@@ -560,7 +618,7 @@ private fun SettingsScreen(launchId: Int) {
                 Section("On tap") {
                     ChipFlow {
                         TapAction.entries.forEach { a ->
-                            FilterChip(
+                            Chip(
                                 selected = cfg.tapAction == a,
                                 onClick = {
                                     if (a == TapAction.APP) showAppPicker = true else update(cfg.copy(tapAction = a))
@@ -590,58 +648,80 @@ private fun SettingsScreen(launchId: Int) {
                 }
 
                 // ---------- reliability ----------
-                Section("Battery") {
-                    Text(
-                        if (ignoringBattery) "Unrestricted ✓" else "Restricted. The clock may lag.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    if (!ignoringBattery) {
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            runCatching {
-                                ctx.startActivity(
-                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                Section("Battery", padded = false) {
+                    val ok = ignoringBattery
+                    ListItem(
+                        leadingContent = {
+                            Box(
+                                Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(if (ok) scheme.primaryContainer else scheme.errorContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    if (ok) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = if (ok) scheme.onPrimaryContainer else scheme.onErrorContainer,
                                 )
                             }
-                        }) { Text("Unrestrict") }
-                    }
+                        },
+                        headlineContent = { Text(if (ok) "Unrestricted" else "Restricted") },
+                        supportingContent = { Text(if (ok) "Updates on time" else "Clock may lag") },
+                        trailingContent = if (ok) null else {
+                            {
+                                FilledTonalButton(onClick = {
+                                    runCatching {
+                                        ctx.startActivity(
+                                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                        )
+                                    }
+                                }) { Text("Fix") }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
                 }
 
-                TextButton(onClick = { update(WidgetConfig()); resetCount++ }) {
-                    Text("Reset")
-                }
-                val version = remember {
-                    runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
-                }
-                Text(
-                    "Minutia $version",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    textAlign = TextAlign.Center,
-                )
                 Spacer(Modifier.height(24.dp))
             }
         }
     }
+
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            icon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+            title = { Text("Reset widget?") },
+            text = { Text("All its settings go back to default.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmReset = false; update(WidgetConfig()); resetCount++ },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
+        )
+    }
 }
 
+/** A titled group: label above, content in a rounded surface container (Material 3 settings layout). */
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-            content()
+private fun Section(title: String, padded: Boolean = true, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp),
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(if (padded) Modifier.padding(16.dp) else Modifier.padding(vertical = 4.dp)) { content() }
         }
     }
 }
@@ -651,8 +731,8 @@ private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, 
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onChange(!checked) }
-            .padding(vertical = 4.dp),
+            .heightIn(min = 56.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -661,7 +741,16 @@ private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, 
             modifier = Modifier.weight(1f),
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
         )
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        Switch(
+            checked = checked,
+            onCheckedChange = null, // the whole row toggles
+            enabled = enabled,
+            thumbContent = if (checked) {
+                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
+            } else {
+                null
+            },
+        )
     }
 }
 
@@ -880,7 +969,7 @@ private fun FontEditor(
     }
 
     Column {
-        SlidingSegmented(FontSource.entries, tab, { it.label }) { choice ->
+        Segmented(FontSource.entries, tab, { it.label }) { choice ->
             tab = choice
             status = null
             when (choice) {
@@ -910,7 +999,7 @@ private fun FontEditor(
         when (shown) {
             FontSource.SYSTEM -> ChipFlow {
                 FontManager.systemFamilies.forEach { (fam, label) ->
-                    FilterChip(
+                    Chip(
                         selected = spec.source == FontSource.SYSTEM && spec.systemFamily == fam,
                         onClick = { applyFont(current.copy(source = FontSource.SYSTEM, systemFamily = fam)) },
                         label = { Text(label) },
@@ -956,7 +1045,7 @@ private fun FontEditor(
                     val rowState = remember(chips) { LazyListState() }
                     LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(chips) { fam ->
-                            FilterChip(
+                            Chip(
                                 selected = spec.source == FontSource.GOOGLE && spec.googleFamily.equals(fam, ignoreCase = true),
                                 onClick = { query = fam; fetch(fam) },
                                 label = { Text(fam) },
@@ -1009,72 +1098,21 @@ private fun openUrl(ctx: Context, url: String) {
     }
 }
 
-/**
- * Segmented selector with a highlight that glides to the chosen option (spring), label colours
- * that fade, and a light haptic tick. Replaces Material's segmented buttons app-wide.
- */
+/** Material 3 single-choice segmented buttons (selected segment gets the animated check + fill). */
 @Composable
-private fun <T> SlidingSegmented(
+private fun <T> Segmented(
     options: List<T>,
     selected: T,
     label: (T) -> String,
     onSelect: (T) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val haptics = LocalHapticFeedback.current
-    val index = options.indexOf(selected).coerceAtLeast(0)
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(CircleShape)
-            .border(1.dp, scheme.outline, CircleShape)
-            .padding(4.dp),
-    ) {
-        val segment = maxWidth / options.size
-        val x by animateDpAsState(
-            segment * index,
-            spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
-            label = "segmentX",
-        )
-        Box(
-            Modifier
-                .offset(x = x)
-                .width(segment)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(scheme.secondaryContainer),
-        )
-        Row(Modifier.fillMaxSize()) {
-            options.forEachIndexed { i, option ->
-                val isSel = i == index
-                val textColor by animateColorAsState(
-                    if (isSel) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
-                    tween(220),
-                    label = "segmentText",
-                )
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .selectable(selected = isSel, role = Role.Tab) {
-                            if (!isSel) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(option)
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        label(option),
-                        color = textColor,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
-                }
-            }
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        options.forEachIndexed { i, option ->
+            SegmentedButton(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
+            ) { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
     }
 }
@@ -1089,4 +1127,19 @@ private fun Reveal(visible: Boolean, content: @Composable () -> Unit) {
     ) {
         Column { content() }
     }
+}
+
+/** Material filter chip: selected chips show a leading check. */
+@Composable
+private fun Chip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        leadingIcon = if (selected) {
+            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+        } else {
+            null
+        },
+    )
 }

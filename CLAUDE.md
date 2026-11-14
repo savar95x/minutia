@@ -1,9 +1,9 @@
 # Minutia: notes for AI/dev sessions
 
-Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). Package `dev.savar.minutia`, minSdk 29, targetSdk 34.
+Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). Package `dev.savar.minutia`, minSdk 29, targetSdk 34, compileSdk 37.
 
 ## Build & release
-- No local Android SDK is assumed. **Push to `main`**: `.github/workflows/build.yml` runs `gradle :app:assembleRelease` (Gradle 8.9, AGP 8.5.2, Kotlin 2.0.20, Compose BOM 2024.09.00). Pushes touching only `*.md` / `docs/**` skip CI.
+- No local Android SDK is assumed. **Push to `main`**: `.github/workflows/build.yml` runs `gradle :app:assembleRelease` (latest Gradle via `gradle-version: current`, AGP 9.5.1 with **built-in Kotlin** (no `org.jetbrains.kotlin.android` plugin), Compose compiler plugin 2.4.21, Compose BOM 2026.09.00). BOM 2026.x needs AGP ≥ 9.1 and compileSdk ≥ 37. Pushes touching only `*.md` / `docs/**` skip CI.
 - **Versioning**: `version.properties` (`VERSION_NAME=MAJOR.MINOR.PATCH`) is the single source. `versionCode = major*10000 + minor*100 + patch`. CI publishes a GitHub Release (tag `vX.Y.Z`, asset `Minutia-X.Y.Z.apk`, notes = that version's section of `CHANGELOG.md`) only when that tag doesn't exist yet; other pushes just build-check and upload an Actions artifact.
 - **To ship a change**: bump `VERSION_NAME` (patch for fixes, minor for features) and add a `## [X.Y.Z] - date` section to `CHANGELOG.md` in the same push. Never reuse or lower a version.
 - Old `build-1`…`build-6` releases (versionCode 1–6) predate this scheme.
@@ -18,7 +18,7 @@ Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). P
 - Fonts are `FontSpec`s: `WidgetConfig.clockFont` / `withClockFont()` and `dateFont` / `withDateFont()` (date used only when `dateFontMode == CUSTOM`; `DEFAULT` = sans-serif 500, `CLOCK` = clock font). Old configs' `dateUsesClockFont` migrates to `CLOCK`.
 - `DateFormats.kt`: date presets + custom patterns. `cfg.dateFormat` holds either SimpleDateFormat letters or strftime % codes (translated by `fromStrftime`). Invalid patterns aren't saved; the renderer falls back to the first preset.
 - Font chips row in `FontEditor`: recents first (newest first) **then** `FontManager.googleSuggestions` (curated, fixed order, owner wants Fragment Mono 3rd among them; never reorder/replace). Recents: `recentFonts/addRecent` (SharedPreferences "fonts", stored newest first, max 50, curated names never stored).
-- UI conventions: option rows use `SlidingSegmented` (animated sliding highlight + haptic; no Material SegmentedButton/checkmarks). Conditional settings are wrapped in `Reveal(visible) { }` (expand + fade). Keep the app feeling alive: prefer animated transitions over instant pops. Keep copy minimal: short labels, no explanatory paragraphs (owner dislikes wordy UI).
+- UI conventions (owner wants it "as Material as possible"): Scaffold + collapsing `LargeTopAppBar` (⋮ menu holds Reset… with a confirm dialog, and the version); preview height lerps 200→108dp as settings scroll. `Section(title)` = label above + `surfaceContainer` extraLarge-shape group. Option rows use `Segmented` (= Material `SingleChoiceSegmentedButtonRow`, default animated check; owner prefers this over custom sliders). Chips go through `Chip` (FilterChip + check when selected). `SwitchRow` = toggleable row, Switch shows a check thumb icon. Conditional settings use `Reveal(visible) { }`. Copy minimal: short labels, no explanatory paragraphs.
 - `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity. `FontEditor` is the reusable font picker (System / Google / File + weight) used for the clock and the date.
 
 ## Gotchas
