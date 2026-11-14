@@ -85,6 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.PaddingValues
@@ -666,6 +667,16 @@ private fun SettingsScreen(launchId: Int) {
                 TextButton(onClick = { update(WidgetConfig()); fontQuery = WidgetConfig().googleFamily; fontTab = FontSource.SYSTEM }) {
                     Text("Reset to defaults")
                 }
+                val version = remember {
+                    runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
+                }
+                Text(
+                    "Minutia $version",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    textAlign = TextAlign.Center,
+                )
                 Spacer(Modifier.height(24.dp))
             }
         }

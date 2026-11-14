@@ -3,8 +3,10 @@
 Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). Package `dev.savar.minutia`, minSdk 29, targetSdk 34.
 
 ## Build & release
-- No local Android SDK is assumed. **Push to `main`**: `.github/workflows/build.yml` runs `gradle :app:assembleRelease` (Gradle 8.9, AGP 8.5.2, Kotlin 2.0.20, Compose BOM 2024.09.00) and publishes `Minutia-<run>.apk` as a GitHub Release `build-<run>`.
-- `versionCode` = `GITHUB_RUN_NUMBER`, so every CI build installs as an update.
+- No local Android SDK is assumed. **Push to `main`**: `.github/workflows/build.yml` runs `gradle :app:assembleRelease` (Gradle 8.9, AGP 8.5.2, Kotlin 2.0.20, Compose BOM 2024.09.00). Pushes touching only `*.md` / `docs/**` skip CI.
+- **Versioning**: `version.properties` (`VERSION_NAME=MAJOR.MINOR.PATCH`) is the single source. `versionCode = major*10000 + minor*100 + patch`. CI publishes a GitHub Release (tag `vX.Y.Z`, asset `Minutia-X.Y.Z.apk`, notes = that version's section of `CHANGELOG.md`) only when that tag doesn't exist yet; other pushes just build-check and upload an Actions artifact.
+- **To ship a change**: bump `VERSION_NAME` (patch for fixes, minor for features) and add a `## [X.Y.Z] - date` section to `CHANGELOG.md` in the same push. Never reuse or lower a version.
+- Old `build-1`…`build-6` releases (versionCode 1–6) predate this scheme.
 - Signed with `app/release.jks` (committed). **Never change the key or `applicationId`**, or installed copies can't update (uninstall wipes widget settings).
 - R8 minify + resource shrinking are on. Config enums are stored by `name` and parsed with `entries.firstOrNull`, so they're safe under R8.
 

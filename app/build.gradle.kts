@@ -1,10 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+// Single source of truth for the app version: version.properties at the repo root.
+val appVersionName: String = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}.getProperty("VERSION_NAME").trim()
+
+// 1.2.3 -> 10203. Always increases with the version, so every release installs as an update.
+val appVersionCode: Int = appVersionName.split(".").map { it.toInt() }.let { (major, minor, patch) ->
+    require(minor < 100 && patch < 100) { "Keep MINOR and PATCH below 100" }
+    major * 10_000 + minor * 100 + patch
+}
 
 android {
     namespace = "dev.savar.minutia"
@@ -14,8 +25,8 @@ android {
         applicationId = "dev.savar.minutia"
         minSdk = 29
         targetSdk = 34
-        versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     signingConfigs {

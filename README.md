@@ -33,11 +33,12 @@ Tap it to open your clock app.
 - Optional name under the widget: add the "named" variant from the widget picker, or flip *Show name under widget* in settings
 
 ## Install
-Grab the latest APK from [Releases](../../releases), open it on your phone and allow "Install unknown apps" when asked.
+Grab `Minutia-x.y.z.apk` from the [latest release](../../releases/latest), open it on your phone and allow "Install unknown apps" when asked. What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Then long-press your home screen → Widgets → Minutia.
 
 On OnePlus/OxygenOS, open the app and tap **Allow background** so the clock never lags.
 
 ## Build
 Every push to `main` builds a signed APK with GitHub Actions (`.github/workflows/build.yml`).
+To release, bump `VERSION_NAME` in `version.properties` and add a matching section to `CHANGELOG.md`; CI then publishes `vX.Y.Z` on Releases.
 Locally: `gradle :app:assembleRelease` with the Android SDK installed.
