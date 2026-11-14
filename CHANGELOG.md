@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.4.2] - 2026-11-14
+
+### Changed
+- Fonts you've searched for now sit at the start of the font row, newest first, followed by the fixed curated picks.
+
 ## [1.4.1] - 2026-11-14
 
 ### Changed
