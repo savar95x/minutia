@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -19,7 +18,7 @@ val appVersionCode: Int = appVersionName.split(".").map { it.toInt() }.let { (ma
 
 android {
     namespace = "dev.savar.minutia"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.savar.minutia"
@@ -57,12 +56,6 @@ android {
     lint {
         checkReleaseBuilds = false
         abortOnError = false
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
