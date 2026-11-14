@@ -3,6 +3,12 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.6.4] - 2026-11-15
+
+### Fixed
+- The mini clock in the top bar now lines up with the title: it's just the time, cropped tight, at title height.
+- No more glitch when the title swaps to the mini clock: fixed-size slot, a short slide + fade, and it only switches at clearly different scroll points so it can't flicker.
+
 ## [1.6.3] - 2026-11-15
 
 ### Changed

@@ -11,6 +11,9 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -282,27 +285,47 @@ private fun SettingsScreen(launchId: Int) {
     // The big preview is the first thing in the scrolling page. Once it has scrolled out of
     // view, a small live copy takes the title's place in the top bar.
     val heroPx = with(density) { 200.dp.toPx() }
-    val previewScrolledAway by remember { derivedStateOf { settingsScroll.value > heroPx * 0.85f } }
+    // Hysteresis: show at 90% scrolled away, hide again below 60%, so it never flickers.
+    var showMini by remember { mutableStateOf(false) }
+    LaunchedEffect(settingsScroll, heroPx) {
+        snapshotFlow { settingsScroll.value }.collect { v ->
+            if (!showMini && v > heroPx * 0.9f) showMini = true
+            else if (showMini && v < heroPx * 0.6f) showMini = false
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
                 title = {
-                    Crossfade(targetState = previewScrolledAway, animationSpec = tween(250), label = "title") { mini ->
-                        if (mini) {
-                            val small = remember(cfg, size, minuteTick, fontVersion) {
-                                ClockRenderer.render(ctx, cfg, size.w, size.h, size.dp).asImageBitmap()
+                    // Fixed-height slot so swapping text <-> clock never shifts the bar.
+                    Box(Modifier.height(36.dp), contentAlignment = Alignment.CenterStart) {
+                        AnimatedContent(
+                            targetState = showMini,
+                            transitionSpec = {
+                                (fadeIn(tween(220, delayMillis = 60)) + slideInVertically(tween(260)) { it / 2 }) togetherWith
+                                    (fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it / 2 }) using
+                                    SizeTransform(clip = false)
+                            },
+                            contentAlignment = Alignment.CenterStart,
+                            label = "title",
+                        ) { mini ->
+                            if (mini) {
+                                val small = remember(cfg, minuteTick, fontVersion) {
+                                    ClockRenderer.renderMini(ctx, cfg, (64 * density.density).toInt(), density.density * 2f)
+                                        .asImageBitmap()
+                                }
+                                Image(
+                                    bitmap = small,
+                                    contentDescription = "Preview",
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.CenterStart,
+                                    modifier = Modifier.height(30.dp).widthIn(max = 240.dp),
+                                )
+                            } else {
+                                Text("Minutia")
                             }
-                            Image(
-                                bitmap = small,
-                                contentDescription = "Preview",
-                                contentScale = ContentScale.Fit,
-                                alignment = Alignment.CenterStart,
-                                modifier = Modifier.height(44.dp).widthIn(max = 220.dp),
-                            )
-                        } else {
-                            Text("Minutia")
                         }
                     }
                 },
