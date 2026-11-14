@@ -143,8 +143,8 @@ object FontManager {
         return isTrueType || tag == "OTTO" || tag == "true" || tag == "ttcf"
     }
 
+    // Verified in CI: both of these get plain TrueType from fonts.googleapis.com (newer UAs get WOFF/WOFF2).
     private val USER_AGENTS = listOf(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.59.8 (KHTML, like Gecko) Version/5.1.9 Safari/534.59.8",
         "curl/8.5.0",
         "Mozilla/5.0 (Linux; U; Android 4.0.3; en-us) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30",
     )
