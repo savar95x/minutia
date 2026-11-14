@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.5.0] - 2026-11-14
+
+### Added
+- Motion throughout settings:
+  - Option rows (font source, date font, alignment) have a highlight that glides to your choice, with a light haptic tick.
+  - Settings that appear or disappear (custom date, background options, AM/PM, custom date font, colour pickers) expand and fade smoothly.
+  - Switching between System / Google / File fonts crossfades.
+  - Style cards spring up when chosen; the preview crossfades between styles and blends when switching light/dark wallpaper.
+
 ## [1.4.3] - 2026-11-14
 
 ### Fixed

@@ -11,6 +11,29 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -55,9 +78,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -217,6 +237,7 @@ private fun SettingsScreen(launchId: Int) {
     var showAppPicker by remember { mutableStateOf(false) }
     var nameHint by remember { mutableStateOf(false) }
     var resetCount by remember { mutableIntStateOf(0) }
+    val haptics = LocalHapticFeedback.current
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
@@ -229,15 +250,12 @@ private fun SettingsScreen(launchId: Int) {
 
             // ---------- live preview ----------
             val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
-            val preview = remember(cfg, size, minuteTick, fontVersion) {
-                ClockRenderer.render(ctx, cfg, size.w, size.h, size.dp).asImageBitmap()
-            }
             val scheme = MaterialTheme.colorScheme
-            val bgBrush = if (lightPreview) {
-                Brush.linearGradient(listOf(Color(0xFFE9E4DA), Color(0xFFC9D6E3), Color(0xFFF3E1D3)))
-            } else {
-                Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22), scheme.tertiaryContainer))
-            }
+            // Wallpaper gradient blends between dark and light when tapped.
+            val g1 by animateColorAsState(if (lightPreview) Color(0xFFE9E4DA) else scheme.primaryContainer, tween(450), label = "g1")
+            val g2 by animateColorAsState(if (lightPreview) Color(0xFFC9D6E3) else Color(0xFF1A1C22), tween(450), label = "g2")
+            val g3 by animateColorAsState(if (lightPreview) Color(0xFFF3E1D3) else scheme.tertiaryContainer, tween(450), label = "g3")
+            val bgBrush = Brush.linearGradient(listOf(g1, g2, g3))
             Box(
                 Modifier
                     .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -248,12 +266,18 @@ private fun SettingsScreen(launchId: Int) {
                     .clickable { lightPreview = !lightPreview },
                 contentAlignment = Alignment.Center,
             ) {
-                Image(
-                    bitmap = preview,
-                    contentDescription = "Preview",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(14.dp),
-                )
+                // Crossfade when the style changes; other edits update instantly.
+                Crossfade(targetState = cfg.style, animationSpec = tween(320), label = "previewStyle") { st ->
+                    val preview = remember(cfg, st, size, minuteTick, fontVersion) {
+                        ClockRenderer.render(ctx, cfg.copy(style = st), size.w, size.h, size.dp).asImageBitmap()
+                    }
+                    Image(
+                        bitmap = preview,
+                        contentDescription = "Preview",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                    )
+                }
                 Text(
                     if (lightPreview) "light wallpaper · tap" else "dark wallpaper · tap",
                     style = MaterialTheme.typography.labelSmall,
@@ -315,7 +339,7 @@ private fun SettingsScreen(launchId: Int) {
                                 AppWidgetManager.getInstance(ctx).requestPinAppWidget(target, null, null)
                                 nameHint = true
                             }
-                            if (nameHint) {
+                            Reveal(nameHint) {
                                 Text(
                                     "Android fixes a widget's name when it's placed, so add the new one, then remove the old one. Your style carries over.",
                                     style = MaterialTheme.typography.bodySmall,
@@ -338,24 +362,36 @@ private fun SettingsScreen(launchId: Int) {
                                 ).asImageBitmap()
                             }
                             val selected = style == cfg.style
+                            val cardScale by animateFloatAsState(
+                                if (selected) 1f else 0.93f,
+                                spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                                label = "cardScale",
+                            )
+                            val outline by animateColorAsState(
+                                if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
+                            )
+                            val labelColor by animateColorAsState(
+                                if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
+                            )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(
                                     Modifier
+                                        .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
                                         .size(width = 150.dp, height = 84.dp)
                                         .clip(RoundedCornerShape(18.dp))
                                         .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
-                                        .border(
-                                            BorderStroke(if (selected) 3.dp else 0.dp, if (selected) scheme.primary else Color.Transparent),
-                                            RoundedCornerShape(18.dp),
-                                        )
-                                        .clickable { update(cfg.copy(style = style)) },
+                                        .border(BorderStroke(3.dp, outline), RoundedCornerShape(18.dp))
+                                        .clickable {
+                                            if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            update(cfg.copy(style = style))
+                                        },
                                 ) {
                                     Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
                                 }
                                 Text(
                                     style.label,
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = if (selected) scheme.primary else scheme.onSurfaceVariant,
+                                    color = labelColor,
                                     modifier = Modifier.padding(top = 4.dp),
                                 )
                             }
@@ -383,20 +419,11 @@ private fun SettingsScreen(launchId: Int) {
                                 HorizontalDivider(Modifier.padding(vertical = 14.dp), color = scheme.outlineVariant)
                             }
                             Text("Date font", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                                val modes = DateFontMode.entries.filter {
-                                    it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
-                                }
-                                modes.forEachIndexed { i, m ->
-                                    SegmentedButton(
-                                        selected = cfg.dateFontMode == m,
-                                        onClick = { update(cfg.copy(dateFontMode = m)) },
-                                        shape = SegmentedButtonDefaults.itemShape(index = i, count = modes.size),
-                                        icon = {},
-                                    ) { Text(m.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                                }
+                            val modes = DateFontMode.entries.filter {
+                                it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
                             }
-                            if (cfg.dateFontMode == DateFontMode.CUSTOM) {
+                            SlidingSegmented(modes, cfg.dateFontMode, { it.label }) { update(cfg.copy(dateFontMode = it)) }
+                            Reveal(cfg.dateFontMode == DateFontMode.CUSTOM) {
                                 Spacer(Modifier.height(14.dp))
                                 FontEditor(
                                     spec = cfg.dateFont,
@@ -418,7 +445,7 @@ private fun SettingsScreen(launchId: Int) {
                     SwitchRow("Match wallpaper (Material You)", cfg.useWallpaperColors && canDynamic, enabled = canDynamic) {
                         update(cfg.copy(useWallpaperColors = it))
                     }
-                    if (!cfg.useWallpaperColors || !canDynamic) {
+                    Reveal(!cfg.useWallpaperColors || !canDynamic) {
                         ColorPicker("Main colour", cfg.primaryColor) { update(cfg.copy(primaryColor = it)) }
                         ColorPicker("Accent colour", cfg.accentColor) { update(cfg.copy(accentColor = it)) }
                     }
@@ -429,12 +456,12 @@ private fun SettingsScreen(launchId: Int) {
                 Section("Time & date") {
                     SwitchRow("24-hour time", cfg.use24h) { update(cfg.copy(use24h = it)) }
                     SwitchRow("Leading zero (09:05)", cfg.leadingZero) { update(cfg.copy(leadingZero = it)) }
-                    if (!cfg.use24h) SwitchRow("Show AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) }
-                    if (cfg.style == ClockStyle.WORDS) {
+                    Reveal(!cfg.use24h) { SwitchRow("Show AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) } }
+                    Reveal(cfg.style == ClockStyle.WORDS) {
                         SwitchRow("All lowercase words", cfg.lowercaseWords) { update(cfg.copy(lowercaseWords = it)) }
                     }
                     SwitchRow("Show date", cfg.showDate) { update(cfg.copy(showDate = it)) }
-                    if (cfg.showDate) {
+                    Reveal(cfg.showDate) {
                         val now = remember(minuteTick) { Date() }
                         val isPreset = cfg.dateFormat in DateFormats.PRESETS
                         var customOpen by remember(selectedId, resetCount) { mutableStateOf(!isPreset) }
@@ -457,7 +484,7 @@ private fun SettingsScreen(launchId: Int) {
                                 label = { Text("Custom…") },
                             )
                         }
-                        if (customOpen) {
+                        Reveal(customOpen) {
                             val fmt = remember(customText) { DateFormats.formatter(customText) }
                             val shows = remember(fmt, now) { fmt?.format(now) }
                             Spacer(Modifier.height(10.dp))
@@ -520,22 +547,12 @@ private fun SettingsScreen(launchId: Int) {
                             onChange = { setLocal(cfg.copy(letterSpacing = it)) }, onDone = { commit() })
                     }
                     Text("Alignment", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 6.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        val all = HAlign.entries
-                        all.forEachIndexed { i, a ->
-                            SegmentedButton(
-                                selected = cfg.align == a,
-                                onClick = { update(cfg.copy(align = a)) },
-                                shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
-                                icon = {}, // selection shown by colour only, like the font rows
-                            ) { Text(a.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        }
-                    }
+                    SlidingSegmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
                     Spacer(Modifier.height(6.dp))
                     SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled clock face" else "Background card", cfg.background) {
                         update(cfg.copy(background = it))
                     }
-                    if (cfg.background) {
+                    Reveal(cfg.background) {
                         if (!cfg.useWallpaperColors || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                             ColorPicker("Background colour", cfg.bgColor) { update(cfg.copy(bgColor = it)) }
                         }
@@ -873,39 +890,34 @@ private fun FontEditor(
     }
 
     Column {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            val all = FontSource.entries
-            all.forEachIndexed { i, src ->
-                SegmentedButton(
-                    selected = tab == src,
-                    onClick = {
-                        tab = src
-                        status = null
-                        when (src) {
-                            FontSource.SYSTEM -> applyFont(current.copy(source = src))
-                            FontSource.GOOGLE -> {
-                                val fam = current.googleFamily
-                                if (fam.isBlank()) {
-                                    // Nothing chosen yet: just show the search box.
-                                } else if (FontManager.isGoogleDownloaded(ctx, fam, current.weight)) {
-                                    applyFont(current.copy(source = src))
-                                } else {
-                                    fetch(fam)
-                                }
-                            }
-                            FontSource.FILE ->
-                                if (current.localFontFile.isNotEmpty()) applyFont(current.copy(source = src))
-                                else pick.launch(arrayOf("*/*"))
-                        }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
-                    icon = {},
-                ) { Text(src.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        SlidingSegmented(FontSource.entries, tab, { it.label }) { choice ->
+            tab = choice
+            status = null
+            when (choice) {
+                FontSource.SYSTEM -> applyFont(current.copy(source = choice))
+                FontSource.GOOGLE -> {
+                    val fam = current.googleFamily
+                    if (fam.isBlank()) {
+                        // Nothing chosen yet: just show the search box.
+                    } else if (FontManager.isGoogleDownloaded(ctx, fam, current.weight)) {
+                        applyFont(current.copy(source = choice))
+                    } else {
+                        fetch(fam)
+                    }
+                }
+                FontSource.FILE ->
+                    if (current.localFontFile.isNotEmpty()) applyFont(current.copy(source = choice))
+                    else pick.launch(arrayOf("*/*"))
             }
         }
         Spacer(Modifier.height(14.dp))
 
-        when (tab) {
+        AnimatedContent(
+            targetState = tab,
+            transitionSpec = { (fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120))) using SizeTransform(clip = false) },
+            label = "fontTab",
+        ) { shown ->
+        when (shown) {
             FontSource.SYSTEM -> ChipFlow {
                 FontManager.systemFamilies.forEach { (fam, label) ->
                     FilterChip(
@@ -992,8 +1004,9 @@ private fun FontEditor(
                 }
             }
         }
+        }
 
-        if (tab != FontSource.FILE) {
+        Reveal(tab != FontSource.FILE) {
             Spacer(Modifier.height(10.dp))
             LabeledSlider(
                 label = "Weight",
@@ -1023,5 +1036,87 @@ private fun FontEditor(
 private fun openUrl(ctx: Context, url: String) {
     runCatching {
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+/**
+ * Segmented selector with a highlight that glides to the chosen option (spring), label colours
+ * that fade, and a light haptic tick. Replaces Material's segmented buttons app-wide.
+ */
+@Composable
+private fun <T> SlidingSegmented(
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val index = options.indexOf(selected).coerceAtLeast(0)
+    BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(CircleShape)
+            .border(1.dp, scheme.outline, CircleShape)
+            .padding(4.dp),
+    ) {
+        val segment = maxWidth / options.size
+        val x by animateDpAsState(
+            segment * index,
+            spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+            label = "segmentX",
+        )
+        Box(
+            Modifier
+                .offset(x = x)
+                .width(segment)
+                .fillMaxHeight()
+                .clip(CircleShape)
+                .background(scheme.secondaryContainer),
+        )
+        Row(Modifier.fillMaxSize()) {
+            options.forEachIndexed { i, option ->
+                val isSel = i == index
+                val textColor by animateColorAsState(
+                    if (isSel) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
+                    tween(220),
+                    label = "segmentText",
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .selectable(selected = isSel, role = Role.Tab) {
+                            if (!isSel) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(option)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label(option),
+                        color = textColor,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Settings that come and go expand + fade instead of popping in. */
+@Composable
+private fun Reveal(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(220, delayMillis = 40)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+        exit = fadeOut(tween(140)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+    ) {
+        Column { content() }
     }
 }
