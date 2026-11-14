@@ -1,0 +1,22 @@
+# Minutia: notes for AI/dev sessions
+
+Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). Package `dev.savar.minutia`, minSdk 29, targetSdk 34.
+
+## Build & release
+- No local Android SDK is assumed. **Push to `main`**: `.github/workflows/build.yml` runs `gradle :app:assembleRelease` (Gradle 8.9, AGP 8.5.2, Kotlin 2.0.20, Compose BOM 2024.09.00) and publishes `Minutia-<run>.apk` as a GitHub Release `build-<run>`.
+- `versionCode` = `GITHUB_RUN_NUMBER`, so every CI build installs as an update.
+- Signed with `app/release.jks` (committed). **Never change the key or `applicationId`**, or installed copies can't update (uninstall wipes widget settings).
+- R8 minify + resource shrinking are on. Config enums are stored by `name` and parsed with `entries.firstOrNull`, so they're safe under R8.
+
+## Architecture (app/src/main/java/dev/savar/minutia)
+- `ClockRenderer.kt`: draws the whole widget into a Bitmap (Canvas). Each style returns a `Block` laid out at unit size 100, then scaled to fit the widget area × `sizePercent`. Styles: BOLD, STACKED, PILLS, ANALOG, WORDS. Add a style = add enum in `WidgetConfig.kt` + a block function + a `when` branch.
+- `ClockWidgetProvider.kt`: `AppWidgetProvider` + `TickScheduler` (exact alarm at each minute boundary, `USE_EXACT_ALARM`) + `WidgetUpdater` (RemoteViews with one ImageView; size from widget options, capped at ~1.2 MP). Also re-renders on TIME_SET / TIMEZONE / LOCALE / BOOT / package replaced.
+- `WidgetConfig.kt`: per-widget settings as JSON in SharedPreferences (`w_<id>`); new widgets inherit the last edited config.
+- `FontManager.kt`: system fonts, Google Fonts download, local .ttf/.otf import. Fonts are stored in `filesDir/fonts`.
+- `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity.
+
+## Gotchas
+- **Google Fonts format depends on User-Agent.** `curl/8.5.0` and an Android-4 UA get TTF; IE6 gets EOT and Safari 5 gets WOFF, which Android can't load. Files are validated by magic bytes (`00010000`/`OTTO`/`true`/`ttcf`). A CI step logs what each UA receives.
+- Widget label is U+2800 (blank) on purpose so launchers (e.g. OnePlus OxygenOS) don't print a name under the widget. The app name stays "Minutia".
+- Owner's phone: OnePlus 13s, OxygenOS 16. Aggressive battery management, so the app offers a "disable battery optimisation" button.
+- Commit as `Savar Verma <102670483+savar95x@users.noreply.github.com>` (public repo, keep personal email out).

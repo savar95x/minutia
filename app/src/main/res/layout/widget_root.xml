@@ -8,6 +8,6 @@
         android:id="@+id/clock"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:contentDescription="@string/widget_name"
+        android:contentDescription="@string/app_name"
         android:scaleType="fitCenter" />
 </FrameLayout>
