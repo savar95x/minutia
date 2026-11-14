@@ -13,11 +13,11 @@
         <intent>
             <action android:name="android.intent.action.SHOW_ALARMS" />
         </intent>
-        <package android:name="com.coloros.alarmclock" />
-        <package android:name="com.oneplus.deskclock" />
-        <package android:name="com.google.android.deskclock" />
-        <package android:name="com.android.deskclock" />
-        <package android:name="com.sec.android.app.clockpackage" />
+        <!-- Launchable apps: lets tap-to-open find the clock and list apps to pick from. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -40,6 +40,27 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".TapActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- Two variants of the same widget: no label (default) and labelled. -->
+        <receiver
+            android:name=".LabeledClockWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/clock_widget_info_labeled" />
+        </receiver>
 
         <receiver
             android:name=".ClockWidgetProvider"

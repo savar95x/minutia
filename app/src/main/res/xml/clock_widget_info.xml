@@ -13,4 +13,4 @@
     android:previewLayout="@layout/widget_preview"
     android:configure="dev.savar.minutia.MainActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
-    android:description="@string/widget_desc" />
+    android:description="@string/widget_desc_unlabeled" />

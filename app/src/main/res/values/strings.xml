@@ -3,5 +3,6 @@
     <string name="app_name">Minutia</string>
     <!-- U+2800 (blank Braille cell): launchers show no text under the widget, and it isn't trimmed like a space. -->
     <string name="widget_name">⠀</string>
-    <string name="widget_desc">A clock you can tweak down to the last pixel</string>
+    <string name="widget_desc_unlabeled">Clock without a name underneath</string>
+    <string name="widget_desc_labeled">Clock with "Minutia" written underneath</string>
 </resources>

@@ -87,6 +87,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -192,6 +208,9 @@ private fun SettingsScreen(launchId: Int) {
 
     // ---------- font download state ----------
     var fontQuery by remember(selectedId) { mutableStateOf(cfg.googleFamily) }
+    var fontTab by remember(selectedId) { mutableStateOf(cfg.fontSource) }
+    var showAppPicker by remember { mutableStateOf(false) }
+    var nameHint by remember { mutableStateOf(false) }
     var fontStatus by remember { mutableStateOf<String?>(null) }
     var downloading by remember { mutableStateOf(false) }
 
@@ -205,6 +224,7 @@ private fun SettingsScreen(launchId: Int) {
             downloading = false
             r.onSuccess {
                 update(cfg.copy(fontSource = FontSource.GOOGLE, googleFamily = family, fontWeight = weight))
+                fontTab = FontSource.GOOGLE
                 fontVersion++
                 fontStatus = "Using $family"
             }.onFailure {
@@ -219,6 +239,7 @@ private fun SettingsScreen(launchId: Int) {
                 FontManager.importLocalFont(ctx, uri)
                     .onSuccess {
                         update(cfg.copy(fontSource = FontSource.FILE, localFontFile = it))
+                        fontTab = FontSource.FILE
                         fontVersion++
                         fontStatus = "Font loaded from file"
                     }
@@ -308,7 +329,7 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 } else if (widgetIds.size > 1 || pinSupported) {
                     Section("Editing") {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChipFlow {
                             widgetIds.forEachIndexed { i, id ->
                                 FilterChip(
                                     selected = id == selectedId,
@@ -320,6 +341,23 @@ private fun SettingsScreen(launchId: Int) {
                                 TextButton(onClick = {
                                     AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
                                 }) { Text("+ Add another") }
+                            }
+                        }
+                        if (pinSupported && selectedId >= 0) {
+                            val labeled = remember(selectedId, widgetIds) { WidgetUpdater.isLabeled(ctx, selectedId) }
+                            SwitchRow("Show name under widget", labeled) { want ->
+                                // A widget's name is fixed when it's placed, so swap in the other variant.
+                                ConfigStore.save(ctx, selectedId, cfg)
+                                val target = if (want) WidgetUpdater.labeledComponent(ctx) else WidgetUpdater.component(ctx)
+                                AppWidgetManager.getInstance(ctx).requestPinAppWidget(target, null, null)
+                                nameHint = true
+                            }
+                            if (nameHint) {
+                                Text(
+                                    "Android fixes a widget's name when it's placed, so add the new one, then remove the old one. Your style carries over.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = scheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -369,78 +407,111 @@ private fun SettingsScreen(launchId: Int) {
                             val all = FontSource.entries
                             all.forEachIndexed { i, src ->
                                 SegmentedButton(
-                                    selected = cfg.fontSource == src,
+                                    selected = fontTab == src,
                                     onClick = {
+                                        fontTab = src
+                                        fontStatus = null
                                         when (src) {
-                                            FontSource.GOOGLE -> if (FontManager.isGoogleDownloaded(ctx, cfg.googleFamily, cfg.fontWeight)) {
-                                                update(cfg.copy(fontSource = src))
-                                            } else fetchGoogle(cfg.googleFamily)
-                                            FontSource.FILE -> if (cfg.localFontFile.isNotEmpty()) update(cfg.copy(fontSource = src))
-                                                else pickFont.launch(arrayOf("*/*"))
                                             FontSource.SYSTEM -> update(cfg.copy(fontSource = src))
+                                            FontSource.GOOGLE ->
+                                                if (FontManager.isGoogleDownloaded(ctx, cfg.googleFamily, cfg.fontWeight)) {
+                                                    update(cfg.copy(fontSource = src))
+                                                } else {
+                                                    fetchGoogle(cfg.googleFamily)
+                                                }
+                                            FontSource.FILE ->
+                                                if (cfg.localFontFile.isNotEmpty()) update(cfg.copy(fontSource = src))
+                                                else pickFont.launch(arrayOf("*/*"))
                                         }
                                     },
                                     shape = SegmentedButtonDefaults.itemShape(index = i, count = all.size),
+                                    icon = {},
                                 ) { Text(src.label, maxLines = 1) }
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
-                        when (cfg.fontSource) {
-                            FontSource.SYSTEM -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(Modifier.height(14.dp))
+
+                        when (fontTab) {
+                            FontSource.SYSTEM -> ChipFlow {
                                 FontManager.systemFamilies.forEach { (fam, label) ->
                                     FilterChip(
-                                        selected = cfg.systemFamily == fam,
-                                        onClick = { update(cfg.copy(systemFamily = fam)) },
+                                        selected = cfg.fontSource == FontSource.SYSTEM && cfg.systemFamily == fam,
+                                        onClick = { update(cfg.copy(fontSource = FontSource.SYSTEM, systemFamily = fam)) },
                                         label = { Text(label) },
                                     )
                                 }
                             }
-                            FontSource.GOOGLE -> Unit
-                            FontSource.FILE -> OutlinedButton(onClick = { pickFont.launch(arrayOf("*/*")) }) {
-                                Text("Choose another .ttf / .otf")
-                            }
-                        }
 
-                        // Google Fonts search is always visible so you can try any family.
-                        Spacer(Modifier.height(10.dp))
-                        Text("Any Google Font", style = MaterialTheme.typography.labelLarge)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = fontQuery,
-                                onValueChange = { fontQuery = it },
-                                singleLine = true,
-                                placeholder = { Text("e.g. Bebas Neue") },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { fetchGoogle(fontQuery) }),
-                                modifier = Modifier.weight(1f),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            FilledTonalButton(onClick = { fetchGoogle(fontQuery) }, enabled = !downloading) {
-                                Text(if (downloading) "…" else "Use")
-                            }
-                        }
-                        fontStatus?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(0.dp),
-                        ) {
-                            FontManager.googleSuggestions.forEach { fam ->
-                                FilterChip(
-                                    selected = cfg.fontSource == FontSource.GOOGLE && cfg.googleFamily.equals(fam, ignoreCase = true),
-                                    onClick = { fontQuery = fam; fetchGoogle(fam) },
-                                    label = { Text(fam) },
+                            FontSource.GOOGLE -> Column {
+                                OutlinedTextField(
+                                    value = fontQuery,
+                                    onValueChange = { fontQuery = it },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(16.dp),
+                                    placeholder = { Text("Search any Google Font") },
+                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                    trailingIcon = {
+                                        if (downloading) {
+                                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            IconButton(onClick = { fetchGoogle(fontQuery) }, enabled = fontQuery.isNotBlank()) {
+                                                Icon(Icons.Default.Check, contentDescription = "Use this font")
+                                            }
+                                        }
+                                    },
+                                    supportingText = if (fontStatus != null) { { Text(fontStatus ?: "") } } else null,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                    keyboardActions = KeyboardActions(onDone = { fetchGoogle(fontQuery) }),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
+                                Text(
+                                    "Popular picks",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = scheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
+                                )
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(FontManager.googleSuggestions) { fam ->
+                                            FilterChip(
+                                                selected = cfg.fontSource == FontSource.GOOGLE &&
+                                                    cfg.googleFamily.equals(fam, ignoreCase = true),
+                                                onClick = { fontQuery = fam; fetchGoogle(fam) },
+                                                label = { Text(fam) },
+                                            )
+                                        }
+                                    }
+                                }
+                                TextButton(
+                                    onClick = {
+                                        runCatching {
+                                            ctx.startActivity(
+                                                Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com/"))
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                            )
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                ) { Text("Browse all fonts on fonts.google.com") }
+                            }
+
+                            FontSource.FILE -> Column {
+                                Text(
+                                    if (cfg.fontSource == FontSource.FILE && cfg.localFontFile.isNotEmpty()) "Using your font file."
+                                    else "Load any .ttf or .otf font from your phone.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                fontStatus?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(onClick = { pickFont.launch(arrayOf("*/*")) }) {
+                                    Text(if (cfg.localFontFile.isEmpty()) "Choose font file" else "Choose another file")
+                                }
                             }
                         }
-                        TextButton(onClick = {
-                            runCatching {
-                                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            }
-                        }) { Text("Browse fonts.google.com") }
 
+                        Spacer(Modifier.height(10.dp))
                         LabeledSlider(
                             label = "Weight",
                             value = cfg.fontWeight,
@@ -489,7 +560,7 @@ private fun SettingsScreen(launchId: Int) {
                     SwitchRow("Show date", cfg.showDate) { update(cfg.copy(showDate = it)) }
                     if (cfg.showDate) {
                         val now = remember(minuteTick) { Date() }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ChipFlow {
                             DATE_FORMATS.forEach { f ->
                                 val sample = remember(f, now) { SimpleDateFormat(f, Locale.getDefault()).format(now) }
                                 FilterChip(
@@ -541,15 +612,35 @@ private fun SettingsScreen(launchId: Int) {
 
                 // ---------- tap ----------
                 Section("When tapped") {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipFlow {
                         TapAction.entries.forEach { a ->
                             FilterChip(
                                 selected = cfg.tapAction == a,
-                                onClick = { update(cfg.copy(tapAction = a)) },
+                                onClick = {
+                                    if (a == TapAction.APP) showAppPicker = true else update(cfg.copy(tapAction = a))
+                                },
                                 label = { Text(a.label) },
                             )
                         }
                     }
+                    if (cfg.tapAction == TapAction.APP && cfg.tapPackage.isNotEmpty()) {
+                        val appName = remember(cfg.tapPackage) { appLabel(ctx, cfg.tapPackage) }
+                        Text(
+                            "Opens $appName",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+                if (showAppPicker) {
+                    AppPickerDialog(
+                        onDismiss = { showAppPicker = false },
+                        onPick = { pkg ->
+                            showAppPicker = false
+                            update(cfg.copy(tapAction = TapAction.APP, tapPackage = pkg))
+                        },
+                    )
                 }
 
                 // ---------- reliability ----------
@@ -572,7 +663,7 @@ private fun SettingsScreen(launchId: Int) {
                     }
                 }
 
-                TextButton(onClick = { update(WidgetConfig()); fontQuery = WidgetConfig().googleFamily }) {
+                TextButton(onClick = { update(WidgetConfig()); fontQuery = WidgetConfig().googleFamily; fontTab = FontSource.SYSTEM }) {
                     Text("Reset to defaults")
                 }
                 Spacer(Modifier.height(24.dp))
@@ -687,4 +778,79 @@ private fun ColorPicker(label: String, color: Int, onPick: (Int) -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun ChipFlow(content: @Composable () -> Unit) {
+    // Chips keep their 32dp height instead of padding out to 48dp touch targets, so rows sit tight.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) { content() }
+    }
+}
+
+private class AppEntry(val label: String, val pkg: String, val icon: ImageBitmap)
+
+private fun appLabel(ctx: Context, pkg: String): String = try {
+    val pm = ctx.packageManager
+    pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+} catch (e: Exception) {
+    pkg
+}
+
+@Suppress("DEPRECATION")
+private fun loadApps(ctx: Context): List<AppEntry> {
+    val pm = ctx.packageManager
+    val px = (40 * ctx.resources.displayMetrics.density).toInt()
+    return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+        .filter { it.activityInfo.packageName != ctx.packageName }
+        .distinctBy { it.activityInfo.packageName }
+        .map { ri ->
+            AppEntry(
+                ri.loadLabel(pm).toString(),
+                ri.activityInfo.packageName,
+                ri.loadIcon(pm).toBitmap(px, px).asImageBitmap(),
+            )
+        }
+        .sortedBy { it.label.lowercase() }
+}
+
+@Composable
+private fun AppPickerDialog(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val apps by produceState<List<AppEntry>?>(null) {
+        value = withContext(Dispatchers.IO) { loadApps(ctx) }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Open which app?") },
+        text = {
+            val list = apps
+            if (list == null) {
+                Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                    items(list) { a ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onPick(a.pkg) }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(a.icon, contentDescription = null, modifier = Modifier.size(36.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Text(a.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        },
+    )
 }

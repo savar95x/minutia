@@ -17,6 +17,7 @@ Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). P
 
 ## Gotchas
 - **Google Fonts format depends on User-Agent.** `curl/8.5.0` and an Android-4 UA get TTF; IE6 gets EOT and Safari 5 gets WOFF, which Android can't load. Files are validated by magic bytes (`00010000`/`OTTO`/`true`/`ttcf`). A CI step logs what each UA receives.
-- Widget label is U+2800 (blank) on purpose so launchers (e.g. OnePlus OxygenOS) don't print a name under the widget. The app name stays "Minutia".
+- **Two widget providers**: `ClockWidgetProvider` (label U+2800, blank, so launchers like OxygenOS print no name under it) and `LabeledClockWidgetProvider` (label "Minutia"). A placed widget's label can't change at runtime, so the "Show name under widget" switch pins the other variant (new widget inherits the last-saved config). `WidgetUpdater.ids()` covers both; only the main provider receives TICK/system broadcasts and it updates all ids.
+- **Widget taps go through `TapActivity`** (Theme.NoDisplay trampoline), which resolves the clock at tap time: SHOW_ALARMS → known OEM clock packages → any launchable app whose package contains "clock". `TapAction.APP` launches a user-picked package. Needs the MAIN/LAUNCHER `<queries>` entry.
 - Owner's phone: OnePlus 13s, OxygenOS 16. Aggressive battery management, so the app offers a "disable battery optimisation" button.
 - Commit as `Savar Verma <102670483+savar95x@users.noreply.github.com>` (public repo, keep personal email out).

@@ -10,11 +10,10 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import android.provider.AlarmClock
 import android.widget.RemoteViews
 import kotlin.math.sqrt
 
-class ClockWidgetProvider : AppWidgetProvider() {
+open class ClockWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -42,7 +41,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) = TickScheduler.schedule(context)
 
-    override fun onDisabled(context: Context) = TickScheduler.cancel(context)
+    // Called when the last widget of *this* variant goes; keep ticking if the other variant remains.
+    override fun onDisabled(context: Context) = TickScheduler.schedule(context)
 
     override fun onDeleted(context: Context, ids: IntArray) {
         ids.forEach { ConfigStore.delete(context, it) }
@@ -52,6 +52,9 @@ class ClockWidgetProvider : AppWidgetProvider() {
         const val ACTION_TICK = "dev.savar.minutia.TICK"
     }
 }
+
+/** Same widget, but with a visible label ("Minutia") so launchers print the name under it. */
+class LabeledClockWidgetProvider : ClockWidgetProvider()
 
 /** Wakes the widget at the start of every minute. */
 object TickScheduler {
@@ -87,9 +90,18 @@ object WidgetUpdater {
     data class SizePx(val w: Int, val h: Int, val dp: Float, val wDp: Int, val hDp: Int)
 
     fun component(ctx: Context) = ComponentName(ctx, ClockWidgetProvider::class.java)
+    fun labeledComponent(ctx: Context) = ComponentName(ctx, LabeledClockWidgetProvider::class.java)
 
-    fun ids(ctx: Context): IntArray =
-        AppWidgetManager.getInstance(ctx).getAppWidgetIds(component(ctx)) ?: IntArray(0)
+    /** All placed Minutia widgets, both the unnamed and the named variant. */
+    fun ids(ctx: Context): IntArray {
+        val m = AppWidgetManager.getInstance(ctx)
+        return (m.getAppWidgetIds(component(ctx)) ?: IntArray(0)) +
+            (m.getAppWidgetIds(labeledComponent(ctx)) ?: IntArray(0))
+    }
+
+    fun isLabeled(ctx: Context, id: Int): Boolean =
+        id >= 0 && AppWidgetManager.getInstance(ctx).getAppWidgetInfo(id)?.provider?.className ==
+            LabeledClockWidgetProvider::class.java.name
 
     fun updateAll(ctx: Context) {
         val m = AppWidgetManager.getInstance(ctx)
@@ -132,28 +144,18 @@ object WidgetUpdater {
         }
     }
 
-    private val CLOCK_PACKAGES = listOf(
-        "com.coloros.alarmclock",
-        "com.oneplus.deskclock",
-        "com.google.android.deskclock",
-        "com.android.deskclock",
-        "com.sec.android.app.clockpackage",
-    )
-
-    private fun clockIntent(ctx: Context): Intent? {
-        val show = Intent(AlarmClock.ACTION_SHOW_ALARMS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (show.resolveActivity(ctx.packageManager) != null) return show
-        for (p in CLOCK_PACKAGES) {
-            ctx.packageManager.getLaunchIntentForPackage(p)?.let { return it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-        }
-        return null
-    }
-
     private fun tapIntent(ctx: Context, cfg: WidgetConfig, id: Int): PendingIntent? {
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         return when (cfg.tapAction) {
             TapAction.NONE -> null
-            TapAction.CLOCK -> clockIntent(ctx)?.let { PendingIntent.getActivity(ctx, id * 4 + 1, it, flags) }
+            // Routed through TapActivity so we can try several ways to open the clock at tap time.
+            TapAction.CLOCK, TapAction.APP -> PendingIntent.getActivity(
+                ctx, id * 4 + 1,
+                Intent(ctx, TapActivity::class.java)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION),
+                flags,
+            )
             TapAction.SETTINGS -> PendingIntent.getActivity(
                 ctx, id * 4 + 2,
                 Intent(ctx, MainActivity::class.java)

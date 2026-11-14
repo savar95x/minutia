@@ -13,8 +13,8 @@ enum class ClockStyle(val label: String) {
 
 enum class FontSource(val label: String) {
     SYSTEM("System"),
-    GOOGLE("Google Fonts"),
-    FILE("From file"),
+    GOOGLE("Google"),
+    FILE("File"),
 }
 
 enum class HAlign(val label: String) {
@@ -24,9 +24,10 @@ enum class HAlign(val label: String) {
 }
 
 enum class TapAction(val label: String) {
-    CLOCK("Open clock app"),
-    SETTINGS("Open widget settings"),
-    NONE("Do nothing"),
+    CLOCK("Clock app"),
+    APP("Pick an app…"),
+    SETTINGS("Minutia settings"),
+    NONE("Nothing"),
 }
 
 data class WidgetConfig(
@@ -56,6 +57,7 @@ data class WidgetConfig(
     val bgOpacity: Int = 45,
     val cornerRadius: Int = 28,
     val tapAction: TapAction = TapAction.CLOCK,
+    val tapPackage: String = "",
 ) {
     fun toJson(): String = JSONObject().apply {
         put("style", style.name)
@@ -84,6 +86,7 @@ data class WidgetConfig(
         put("bgOpacity", bgOpacity)
         put("cornerRadius", cornerRadius)
         put("tapAction", tapAction.name)
+        put("tapPackage", tapPackage)
     }.toString()
 
     companion object {
@@ -121,6 +124,7 @@ data class WidgetConfig(
                     bgOpacity = o.optInt("bgOpacity", d.bgOpacity),
                     cornerRadius = o.optInt("cornerRadius", d.cornerRadius),
                     tapAction = enumOr(o.optString("tapAction"), d.tapAction),
+                    tapPackage = o.optString("tapPackage", d.tapPackage),
                 )
             } catch (e: Exception) {
                 d
