@@ -51,16 +51,6 @@ jobs:
             echo "$fam -> HTTP $code, font magic: ${magic:-none}"
           done
 
-      - name: List latest AndroidX versions (info)
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          for a in androidx/compose/compose-bom androidx/compose/material3/material3 com/android/tools/build/gradle androidx/activity/activity-compose androidx/lifecycle/lifecycle-runtime-compose; do
-            echo "$a: $(curl -s https://dl.google.com/android/maven2/$a/maven-metadata.xml | grep -o '<version>[^<]*' | sed 's/<version>//' | tail -8 | tr '\n' ' ')"
-          done
-          echo "kotlin: $(curl -s https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml | grep -o '<version>[^<]*' | sed 's/<version>//' | grep -v -- '-' | tail -6 | tr '\n' ' ')"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -68,7 +58,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "8.14.3"
 
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace
