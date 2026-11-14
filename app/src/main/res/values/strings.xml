@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Minutia</string>
+    <string name="widget_name">Minutia</string>
+    <string name="widget_desc">A clock you can tweak down to the last pixel</string>
+</resources>
