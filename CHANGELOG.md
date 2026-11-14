@@ -3,6 +3,16 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.4.0] - 2026-11-14
+
+### Added
+- Custom date format: tap "Custom…" and type any pattern (`EEE, d MMM`) or % codes (`%a, %d %b`), with a live preview, a cheat sheet of today's values, and links to the full pattern and % code guides.
+- Recently used Google Fonts now appear first in the font row, newest first (up to 50).
+
+### Changed
+- Shorter list of date presets.
+- "UPPERCASE date" switch is now called "All caps".
+
 ## [1.3.1] - 2026-11-14
 
 ### Fixed

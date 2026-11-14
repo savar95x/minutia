@@ -85,6 +85,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -149,10 +150,6 @@ private val SWATCHES = listOf(
     0xFFFFFFFF, 0xFFFFF4E0, 0xFFFFB59E, 0xFFFF7A59, 0xFFFF8FAB, 0xFFC9B6FF, 0xFF9AD0FF,
     0xFF9EF0C8, 0xFFD4F57A, 0xFFFFD95A, 0xFFC7CBD3, 0xFF5A6070, 0xFF1B1D22, 0xFF000000,
 ).map { it.toInt() }
-
-private val DATE_FORMATS = listOf(
-    "EEE, d MMM", "EEEE, d MMMM", "EEEE", "d MMMM", "EEE d", "MMM d, EEE", "dd/MM/yyyy", "EEEE · d.MM",
-)
 
 private fun hex(c: Int) = String.format("#%06X", 0xFFFFFF and c)
 
@@ -375,6 +372,7 @@ private fun SettingsScreen(launchId: Int) {
                                 spec = cfg.clockFont,
                                 resetKey = Triple(selectedId, resetCount, "clock"),
                                 catalogueVersion = catalogueVersion,
+                                recentKey = fontVersion,
                                 onPreview = { setLocal(cfg.withClockFont(it)) },
                                 onApply = { update(cfg.withClockFont(it)) },
                                 onFontLoaded = { fontVersion++ },
@@ -404,6 +402,7 @@ private fun SettingsScreen(launchId: Int) {
                                     spec = cfg.dateFont,
                                     resetKey = Triple(selectedId, resetCount, "date"),
                                     catalogueVersion = catalogueVersion,
+                                    recentKey = fontVersion,
                                     onPreview = { setLocal(cfg.withDateFont(it)) },
                                     onApply = { update(cfg.withDateFont(it)) },
                                     onFontLoaded = { fontVersion++ },
@@ -437,17 +436,78 @@ private fun SettingsScreen(launchId: Int) {
                     SwitchRow("Show date", cfg.showDate) { update(cfg.copy(showDate = it)) }
                     if (cfg.showDate) {
                         val now = remember(minuteTick) { Date() }
+                        val isPreset = cfg.dateFormat in DateFormats.PRESETS
+                        var customOpen by remember(selectedId, resetCount) { mutableStateOf(!isPreset) }
+                        var customText by remember(selectedId, resetCount) { mutableStateOf(if (isPreset) "" else cfg.dateFormat) }
                         ChipFlow {
-                            DATE_FORMATS.forEach { f ->
+                            DateFormats.PRESETS.forEach { f ->
                                 val sample = remember(f, now) { SimpleDateFormat(f, Locale.getDefault()).format(now) }
                                 FilterChip(
-                                    selected = cfg.dateFormat == f,
-                                    onClick = { update(cfg.copy(dateFormat = f)) },
+                                    selected = !customOpen && cfg.dateFormat == f,
+                                    onClick = { customOpen = false; update(cfg.copy(dateFormat = f)) },
                                     label = { Text(sample) },
                                 )
                             }
+                            FilterChip(
+                                selected = customOpen,
+                                onClick = {
+                                    customOpen = true
+                                    if (customText.isBlank()) customText = cfg.dateFormat
+                                },
+                                label = { Text("Custom…") },
+                            )
                         }
-                        SwitchRow("UPPERCASE date", cfg.uppercaseDate) { update(cfg.copy(uppercaseDate = it)) }
+                        if (customOpen) {
+                            val fmt = remember(customText) { DateFormats.formatter(customText) }
+                            val shows = remember(fmt, now) { fmt?.format(now) }
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = customText,
+                                onValueChange = {
+                                    customText = it
+                                    if (DateFormats.formatter(it) != null) update(cfg.copy(dateFormat = it))
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                label = { Text("Date pattern") },
+                                placeholder = { Text("EEE, d MMM  or  %a, %d %b") },
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                                isError = customText.isNotBlank() && fmt == null,
+                                supportingText = {
+                                    Text(
+                                        when {
+                                            customText.isBlank() -> "Type a pattern, e.g. EEEE d MMMM"
+                                            fmt == null -> "Android doesn't know one of these codes"
+                                            else -> "Shows: $shows"
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            val cheats = remember(now) {
+                                DateFormats.CHEATSHEET.joinToString("   ") { code ->
+                                    "$code → ${SimpleDateFormat(code, Locale.getDefault()).format(now)}"
+                                }
+                            }
+                            Text(
+                                "$cheats\nWords go in 'quotes'. % codes like %a %d %b %Y work too.",
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                color = scheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                            Row {
+                                TextButton(
+                                    onClick = { openUrl(ctx, DateFormats.PATTERN_GUIDE_URL) },
+                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                ) { Text("Pattern guide") }
+                                Spacer(Modifier.width(20.dp))
+                                TextButton(
+                                    onClick = { openUrl(ctx, DateFormats.STRFTIME_GUIDE_URL) },
+                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                ) { Text("% code guide") }
+                            }
+                        }
+                        SwitchRow("All caps", cfg.uppercaseDate) { update(cfg.copy(uppercaseDate = it)) }
                     }
                 }
 
@@ -751,6 +811,7 @@ private fun FontEditor(
     spec: FontSpec,
     resetKey: Any,
     catalogueVersion: Int,
+    recentKey: Int,
     onPreview: (FontSpec) -> Unit,
     onApply: (FontSpec) -> Unit,
     onFontLoaded: () -> Unit,
@@ -776,6 +837,7 @@ private fun FontEditor(
             val r = FontManager.downloadGoogleFont(ctx, typed, weight)
             downloading = false
             r.onSuccess { family ->
+                FontManager.addRecent(ctx, family)
                 applyFont(current.copy(source = FontSource.GOOGLE, googleFamily = family, weight = weight))
                 tab = FontSource.GOOGLE
                 query = family
@@ -877,9 +939,18 @@ private fun FontEditor(
                 )
                 val matches = remember(query, catalogueVersion) { FontManager.suggest(ctx, query) }
                 val typing = query.isNotBlank() && !query.trim().equals(spec.googleFamily, ignoreCase = true)
-                val chips = if (typing && matches.isNotEmpty()) matches else FontManager.googleSuggestions
+                // Recently used fonts first (newest first), then the curated picks.
+                val recents = remember(recentKey) { FontManager.recentFonts(ctx) }
+                val everyday = remember(recents) {
+                    recents + FontManager.googleSuggestions.filterNot { p -> recents.any { it.equals(p, ignoreCase = true) } }
+                }
+                val chips = if (typing && matches.isNotEmpty()) matches else everyday
                 Text(
-                    if (typing && matches.isNotEmpty()) "Matching fonts" else "Popular picks",
+                    when {
+                        typing && matches.isNotEmpty() -> "Matching fonts"
+                        recents.isNotEmpty() -> "Recent & popular"
+                        else -> "Popular picks"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
@@ -898,14 +969,7 @@ private fun FontEditor(
                     }
                 }
                 TextButton(
-                    onClick = {
-                        runCatching {
-                            ctx.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com/"))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                    },
+                    onClick = { openUrl(ctx, "https://fonts.google.com/") },
                     contentPadding = PaddingValues(horizontal = 0.dp),
                 ) { Text("Browse all fonts on fonts.google.com") }
             }
@@ -950,5 +1014,11 @@ private fun FontEditor(
                 color = scheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+private fun openUrl(ctx: Context, url: String) {
+    runCatching {
+        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }

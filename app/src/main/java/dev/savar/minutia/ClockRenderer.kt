@@ -60,11 +60,8 @@ object ClockRenderer {
     }
 
     private fun dateText(cfg: WidgetConfig, cal: Calendar): String {
-        val fmt = try {
-            SimpleDateFormat(cfg.dateFormat, Locale.getDefault())
-        } catch (e: Exception) {
-            SimpleDateFormat("EEE, d MMM", Locale.getDefault())
-        }
+        val fmt = DateFormats.formatter(cfg.dateFormat)
+            ?: SimpleDateFormat(DateFormats.PRESETS.first(), Locale.getDefault())
         val s = fmt.format(cal.time)
         return if (cfg.uppercaseDate) s.uppercase(Locale.getDefault()) else s
     }

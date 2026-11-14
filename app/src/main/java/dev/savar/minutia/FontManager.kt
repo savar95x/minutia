@@ -33,6 +33,22 @@ object FontManager {
 
     private val memCache = HashMap<String, Typeface>()
 
+    // ---------- recently used Google Fonts (newest first) ----------
+
+    private const val RECENT_KEY = "recent_google_fonts"
+    private const val MAX_RECENT = 50
+
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("fonts", Context.MODE_PRIVATE)
+
+    fun recentFonts(ctx: Context): List<String> =
+        (prefs(ctx).getString(RECENT_KEY, "") ?: "").split('\n').filter { it.isNotBlank() }
+
+    fun addRecent(ctx: Context, family: String) {
+        val list = (listOf(family) + recentFonts(ctx).filterNot { it.equals(family, ignoreCase = true) })
+            .take(MAX_RECENT)
+        prefs(ctx).edit().putString(RECENT_KEY, list.joinToString("\n")).apply()
+    }
+
     private fun fontsDir(ctx: Context) = File(ctx.filesDir, "fonts").apply { mkdirs() }
 
     private fun safe(s: String) = s.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_")
