@@ -786,7 +786,7 @@ private fun ChipFlow(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) { content() }
     }
 }

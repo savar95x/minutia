@@ -3,12 +3,26 @@
 *Sweat the small stuff.* A home-screen clock widget for Android where every detail is yours to tweak.
 
 <p align="center">
-  <img src="docs/screenshots/bold.jpg" width="24%" alt="Bold style on the home screen" />
-  <img src="docs/screenshots/pills.jpg" width="24%" alt="Pills style on the home screen" />
-  <img src="docs/screenshots/words.jpg" width="24%" alt="Words style on the home screen" />
-  <img src="docs/screenshots/settings.jpg" width="24%" alt="Settings screen with live preview" />
+  <img src="docs/screenshots/styles.webp" width="760" alt="Four Minutia styles: Bold, Pills, Words centred and Words left-aligned in a thin font" />
 </p>
-<p align="center"><sub>Bold · Pills · Words · Settings with live preview (OnePlus 13s, colours from the wallpaper)</sub></p>
+<p align="center"><sub>Bold · Pills · Words · Words, left-aligned in a thin Google Font. Colours come from the wallpaper.</sub></p>
+
+<br />
+
+<table align="center"><tr>
+<td width="240"><img src="docs/screenshots/home.webp" width="240" alt="Minutia on a OnePlus 13s home screen" /></td>
+<td width="380">
+
+**On the home screen**
+
+Just the time, in the font and colours you choose. No box around it and no name underneath.
+
+Tap it to open your clock app.
+
+<sub>OnePlus 13s · OxygenOS 16</sub>
+
+</td>
+</tr></table>
 
 - **5 styles**: Bold, Stacked, Pills, Analog, Words
 - **Any Google Font**: type a family name and it downloads on the phone; or load your own `.ttf`/`.otf`
