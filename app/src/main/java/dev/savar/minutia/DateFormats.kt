@@ -16,7 +16,7 @@ object DateFormats {
     const val STRFTIME_GUIDE_URL = "https://strftime.org/"
 
     /** Letters shown in the in-app cheat sheet, with what each prints today. */
-    val CHEATSHEET = listOf("EEE", "EEEE", "d", "dd", "MMM", "MMMM", "MM", "yyyy", "D")
+    val CHEATSHEET = listOf("EEE", "EEEE", "d", "MMM", "MMMM", "yyyy")
 
     fun toPattern(input: String): String = if ('%' in input) fromStrftime(input) else input
 

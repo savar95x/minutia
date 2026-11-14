@@ -172,7 +172,7 @@ object FontManager {
     suspend fun downloadGoogleFont(ctx: Context, family: String, weight: Int): Result<String> =
         withContext(Dispatchers.IO) {
             val typed = family.trim()
-            if (typed.isEmpty()) return@withContext Result.failure(Exception("Type a font name"))
+            if (typed.isEmpty()) return@withContext Result.failure(Exception("Type a name"))
             val catalogue = loadCatalogue(ctx)
             val names = nameCandidates(ctx, typed)
             val target = googleFile(ctx, names.first(), weight)
@@ -210,11 +210,11 @@ object FontManager {
             }
             val msg = when {
                 networkError != null && catalogue.isEmpty() ->
-                    "Couldn't reach Google Fonts. Check your internet and try again."
+                    "No connection"
                 else -> {
                     val close = suggest(ctx, typed, 3)
-                    if (close.isNotEmpty()) "No Google Font called “$typed”. Did you mean ${close.joinToString(", ")}?"
-                    else "No Google Font called “$typed”. Check the name on fonts.google.com."
+                    if (close.isNotEmpty()) "Not found. Try ${close.joinToString(", ")}"
+                    else "Not found"
                 }
             }
             Result.failure(Exception(msg))
@@ -227,10 +227,10 @@ object FontManager {
             val out = File(fontsDir(ctx), name)
             ctx.contentResolver.openInputStream(uri)?.use { input ->
                 out.outputStream().use { input.copyTo(it) }
-            } ?: return@withContext Result.failure(Exception("Couldn't open that file"))
+            } ?: return@withContext Result.failure(Exception("Can't open file"))
             if (!looksLikeFont(out)) {
                 out.delete()
-                Result.failure(Exception("That file isn't a font Android can read (use .ttf or .otf)"))
+                Result.failure(Exception("Not a .ttf / .otf font"))
             } else Result.success(name)
         } catch (e: Exception) {
             Result.failure(e)

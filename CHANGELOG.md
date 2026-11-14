@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.5.1] - 2026-11-14
+
+### Changed
+- Much less text in settings: shorter labels and section names, no hint paragraphs, quieter font picker and date-pattern help. Every feature is still there.
+
 ## [1.5.0] - 2026-11-14
 
 ### Added

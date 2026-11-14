@@ -39,10 +39,10 @@ enum class HAlign(val label: String) {
 }
 
 enum class TapAction(val label: String) {
-    CLOCK("Clock app"),
-    APP("Pick an app…"),
-    SETTINGS("Minutia settings"),
-    NONE("Nothing"),
+    CLOCK("Clock"),
+    APP("App…"),
+    SETTINGS("Settings"),
+    NONE("None"),
 }
 
 data class WidgetConfig(

@@ -18,7 +18,7 @@ Native Android home-screen clock widget (Kotlin, Jetpack Compose settings UI). P
 - Fonts are `FontSpec`s: `WidgetConfig.clockFont` / `withClockFont()` and `dateFont` / `withDateFont()` (date used only when `dateFontMode == CUSTOM`; `DEFAULT` = sans-serif 500, `CLOCK` = clock font). Old configs' `dateUsesClockFont` migrates to `CLOCK`.
 - `DateFormats.kt`: date presets + custom patterns. `cfg.dateFormat` holds either SimpleDateFormat letters or strftime % codes (translated by `fromStrftime`). Invalid patterns aren't saved; the renderer falls back to the first preset.
 - Font chips row in `FontEditor`: recents first (newest first) **then** `FontManager.googleSuggestions` (curated, fixed order, owner wants Fragment Mono 3rd among them; never reorder/replace). Recents: `recentFonts/addRecent` (SharedPreferences "fonts", stored newest first, max 50, curated names never stored).
-- UI conventions: option rows use `SlidingSegmented` (animated sliding highlight + haptic; no Material SegmentedButton/checkmarks). Conditional settings are wrapped in `Reveal(visible) { }` (expand + fade). Keep the app feeling alive: prefer animated transitions over instant pops.
+- UI conventions: option rows use `SlidingSegmented` (animated sliding highlight + haptic; no Material SegmentedButton/checkmarks). Conditional settings are wrapped in `Reveal(visible) { }` (expand + fade). Keep the app feeling alive: prefer animated transitions over instant pops. Keep copy minimal: short labels, no explanatory paragraphs (owner dislikes wordy UI).
 - `MainActivity.kt`: Compose settings screen with live preview; also the widget configure/reconfigure activity. `FontEditor` is the reusable font picker (System / Google / File + weight) used for the clock and the date.
 
 ## Gotchas

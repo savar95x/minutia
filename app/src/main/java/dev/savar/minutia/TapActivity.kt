@@ -23,7 +23,7 @@ class TapActivity : Activity() {
             else -> launchClock()
         }
         if (!ok) {
-            Toast.makeText(this, "Couldn't find a clock app. Pick one under \"When tapped\".", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No clock app found", Toast.LENGTH_LONG).show()
             tryStart(Intent(this, MainActivity::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
         }
         finish()

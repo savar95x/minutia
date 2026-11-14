@@ -185,7 +185,7 @@ private fun parseHex(s: String): Int? {
 
 private fun widgetLabel(ctx: Context, id: Int, index: Int): String {
     val s = WidgetUpdater.size(ctx, id)
-    return "Widget ${index + 1}  ·  ${s.wDp}×${s.hDp}dp"
+    return "Widget ${index + 1}"
 }
 
 @Composable
@@ -279,7 +279,7 @@ private fun SettingsScreen(launchId: Int) {
                     )
                 }
                 Text(
-                    if (lightPreview) "light wallpaper · tap" else "dark wallpaper · tap",
+                    if (lightPreview) "☀" else "☾",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (lightPreview) Color(0x99000000) else Color(0x99FFFFFF),
                     modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
@@ -298,21 +298,13 @@ private fun SettingsScreen(launchId: Int) {
                 val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
                 if (widgetIds.isEmpty()) {
                     Section("Get started") {
-                        Text(
-                            "No clock on your home screen yet. Style it here, then add it — it'll use these settings.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(Modifier.height(8.dp))
                         if (pinSupported) {
                             Button(onClick = {
                                 AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
                             }) { Text("Add to home screen") }
+                        } else {
+                            Text("Long-press home screen → Widgets → Minutia", style = MaterialTheme.typography.bodyMedium)
                         }
-                        Text(
-                            "Or: long-press your home screen → Widgets → Minutia.",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
                     }
                 } else if (widgetIds.size > 1 || pinSupported) {
                     Section("Editing") {
@@ -327,12 +319,12 @@ private fun SettingsScreen(launchId: Int) {
                             if (pinSupported) {
                                 TextButton(onClick = {
                                     AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
-                                }) { Text("+ Add another") }
+                                }) { Text("+ Add") }
                             }
                         }
                         if (pinSupported && selectedId >= 0) {
                             val labeled = remember(selectedId, widgetIds) { WidgetUpdater.isLabeled(ctx, selectedId) }
-                            SwitchRow("Show name under widget", labeled) { want ->
+                            SwitchRow("Show name", labeled) { want ->
                                 // A widget's name is fixed when it's placed, so swap in the other variant.
                                 ConfigStore.save(ctx, selectedId, cfg)
                                 val target = if (want) WidgetUpdater.labeledComponent(ctx) else WidgetUpdater.component(ctx)
@@ -341,7 +333,7 @@ private fun SettingsScreen(launchId: Int) {
                             }
                             Reveal(nameHint) {
                                 Text(
-                                    "Android fixes a widget's name when it's placed, so add the new one, then remove the old one. Your style carries over.",
+                                    "Place the new one, then remove the old.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = scheme.onSurfaceVariant,
                                 )
@@ -442,25 +434,25 @@ private fun SettingsScreen(launchId: Int) {
                 // ---------- colours ----------
                 Section("Colours") {
                     val canDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    SwitchRow("Match wallpaper (Material You)", cfg.useWallpaperColors && canDynamic, enabled = canDynamic) {
+                    SwitchRow("Wallpaper colours", cfg.useWallpaperColors && canDynamic, enabled = canDynamic) {
                         update(cfg.copy(useWallpaperColors = it))
                     }
                     Reveal(!cfg.useWallpaperColors || !canDynamic) {
-                        ColorPicker("Main colour", cfg.primaryColor) { update(cfg.copy(primaryColor = it)) }
-                        ColorPicker("Accent colour", cfg.accentColor) { update(cfg.copy(accentColor = it)) }
+                        ColorPicker("Main", cfg.primaryColor) { update(cfg.copy(primaryColor = it)) }
+                        ColorPicker("Accent", cfg.accentColor) { update(cfg.copy(accentColor = it)) }
                     }
-                    SwitchRow("Shadow (helps on bright wallpapers)", cfg.shadow) { update(cfg.copy(shadow = it)) }
+                    SwitchRow("Shadow", cfg.shadow) { update(cfg.copy(shadow = it)) }
                 }
 
                 // ---------- time & date ----------
                 Section("Time & date") {
                     SwitchRow("24-hour time", cfg.use24h) { update(cfg.copy(use24h = it)) }
-                    SwitchRow("Leading zero (09:05)", cfg.leadingZero) { update(cfg.copy(leadingZero = it)) }
-                    Reveal(!cfg.use24h) { SwitchRow("Show AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) } }
+                    SwitchRow("Leading zero", cfg.leadingZero) { update(cfg.copy(leadingZero = it)) }
+                    Reveal(!cfg.use24h) { SwitchRow("AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) } }
                     Reveal(cfg.style == ClockStyle.WORDS) {
-                        SwitchRow("All lowercase words", cfg.lowercaseWords) { update(cfg.copy(lowercaseWords = it)) }
+                        SwitchRow("Lowercase", cfg.lowercaseWords) { update(cfg.copy(lowercaseWords = it)) }
                     }
-                    SwitchRow("Show date", cfg.showDate) { update(cfg.copy(showDate = it)) }
+                    SwitchRow("Date", cfg.showDate) { update(cfg.copy(showDate = it)) }
                     Reveal(cfg.showDate) {
                         val now = remember(minuteTick) { Date() }
                         val isPreset = cfg.dateFormat in DateFormats.PRESETS
@@ -496,28 +488,27 @@ private fun SettingsScreen(launchId: Int) {
                                 },
                                 singleLine = true,
                                 shape = RoundedCornerShape(16.dp),
-                                label = { Text("Date pattern") },
-                                placeholder = { Text("EEE, d MMM  or  %a, %d %b") },
+                                placeholder = { Text("EEE, d MMM  ·  %a %d %b") },
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
                                 isError = customText.isNotBlank() && fmt == null,
                                 supportingText = {
                                     Text(
                                         when {
-                                            customText.isBlank() -> "Type a pattern, e.g. EEEE d MMMM"
-                                            fmt == null -> "Android doesn't know one of these codes"
-                                            else -> "Shows: $shows"
+                                            customText.isBlank() -> ""
+                                            fmt == null -> "Unknown code"
+                                            else -> "$shows"
                                         },
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             val cheats = remember(now) {
-                                DateFormats.CHEATSHEET.joinToString("   ") { code ->
-                                    "$code → ${SimpleDateFormat(code, Locale.getDefault()).format(now)}"
+                                DateFormats.CHEATSHEET.joinToString("  ") { code ->
+                                    "$code ${SimpleDateFormat(code, Locale.getDefault()).format(now)}"
                                 }
                             }
                             Text(
-                                "$cheats\nWords go in 'quotes'. % codes like %a %d %b %Y work too.",
+                                cheats,
                                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                 color = scheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 2.dp),
@@ -526,12 +517,12 @@ private fun SettingsScreen(launchId: Int) {
                                 TextButton(
                                     onClick = { openUrl(ctx, DateFormats.PATTERN_GUIDE_URL) },
                                     contentPadding = PaddingValues(horizontal = 0.dp),
-                                ) { Text("Pattern guide") }
+                                ) { Text("Codes") }
                                 Spacer(Modifier.width(20.dp))
                                 TextButton(
                                     onClick = { openUrl(ctx, DateFormats.STRFTIME_GUIDE_URL) },
                                     contentPadding = PaddingValues(horizontal = 0.dp),
-                                ) { Text("% code guide") }
+                                ) { Text("% codes") }
                             }
                         }
                         SwitchRow("All caps", cfg.uppercaseDate) { update(cfg.copy(uppercaseDate = it)) }
@@ -539,34 +530,34 @@ private fun SettingsScreen(launchId: Int) {
                 }
 
                 // ---------- layout ----------
-                Section("Size & layout") {
+                Section("Layout") {
                     LabeledSlider("Size", cfg.sizePercent, 20..100, 0, "${cfg.sizePercent}%",
                         onChange = { setLocal(cfg.copy(sizePercent = it)) }, onDone = { commit() })
                     if (cfg.style != ClockStyle.ANALOG) {
-                        LabeledSlider("Letter spacing", cfg.letterSpacing, -12..24, 0, "${cfg.letterSpacing}",
+                        LabeledSlider("Spacing", cfg.letterSpacing, -12..24, 0, "${cfg.letterSpacing}",
                             onChange = { setLocal(cfg.copy(letterSpacing = it)) }, onDone = { commit() })
                     }
-                    Text("Alignment", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 6.dp))
+                    Spacer(Modifier.height(4.dp))
                     SlidingSegmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
                     Spacer(Modifier.height(6.dp))
-                    SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled clock face" else "Background card", cfg.background) {
+                    SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled face" else "Background", cfg.background) {
                         update(cfg.copy(background = it))
                     }
                     Reveal(cfg.background) {
                         if (!cfg.useWallpaperColors || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                            ColorPicker("Background colour", cfg.bgColor) { update(cfg.copy(bgColor = it)) }
+                            ColorPicker("Colour", cfg.bgColor) { update(cfg.copy(bgColor = it)) }
                         }
-                        LabeledSlider("Background opacity", cfg.bgOpacity, 0..100, 0, "${cfg.bgOpacity}%",
+                        LabeledSlider("Opacity", cfg.bgOpacity, 0..100, 0, "${cfg.bgOpacity}%",
                             onChange = { setLocal(cfg.copy(bgOpacity = it)) }, onDone = { commit() })
                         if (cfg.style != ClockStyle.ANALOG) {
-                            LabeledSlider("Corner radius", cfg.cornerRadius, 0..48, 0, "${cfg.cornerRadius}dp",
+                            LabeledSlider("Corners", cfg.cornerRadius, 0..48, 0, "${cfg.cornerRadius}dp",
                                 onChange = { setLocal(cfg.copy(cornerRadius = it)) }, onDone = { commit() })
                         }
                     }
                 }
 
                 // ---------- tap ----------
-                Section("When tapped") {
+                Section("On tap") {
                     ChipFlow {
                         TapAction.entries.forEach { a ->
                             FilterChip(
@@ -581,7 +572,7 @@ private fun SettingsScreen(launchId: Int) {
                     if (cfg.tapAction == TapAction.APP && cfg.tapPackage.isNotEmpty()) {
                         val appName = remember(cfg.tapPackage) { appLabel(ctx, cfg.tapPackage) }
                         Text(
-                            "Opens $appName",
+                            "→ $appName",
                             style = MaterialTheme.typography.bodySmall,
                             color = scheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -599,10 +590,9 @@ private fun SettingsScreen(launchId: Int) {
                 }
 
                 // ---------- reliability ----------
-                Section("Keep it on time") {
+                Section("Battery") {
                     Text(
-                        if (ignoringBattery) "Battery optimisation is off for this app, so the clock won't get frozen. ✓"
-                        else "OnePlus phones sometimes freeze widgets to save battery. Allow this app to run in the background so the time never lags.",
+                        if (ignoringBattery) "Unrestricted ✓" else "Restricted. The clock may lag.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (!ignoringBattery) {
@@ -614,12 +604,12 @@ private fun SettingsScreen(launchId: Int) {
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                 )
                             }
-                        }) { Text("Allow background") }
+                        }) { Text("Unrestrict") }
                     }
                 }
 
                 TextButton(onClick = { update(WidgetConfig()); resetCount++ }) {
-                    Text("Reset to defaults")
+                    Text("Reset")
                 }
                 val version = remember {
                     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
@@ -791,7 +781,7 @@ private fun AppPickerDialog(onDismiss: () -> Unit, onPick: (String) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Open which app?") },
+        title = { Text("Choose app") },
         text = {
             val list = apps
             if (list == null) {
@@ -850,7 +840,7 @@ private fun FontEditor(
         val typed = name.trim()
         if (typed.isEmpty() || downloading) return
         downloading = true
-        status = "Downloading $typed…"
+        status = null
         scope.launch {
             val r = FontManager.downloadGoogleFont(ctx, typed, weight)
             downloading = false
@@ -860,9 +850,9 @@ private fun FontEditor(
                 tab = FontSource.GOOGLE
                 query = family
                 fontLoaded()
-                status = "Using $family"
+                status = null
             }.onFailure {
-                status = it.message ?: "Couldn't get “$typed”."
+                status = it.message ?: "Failed"
             }
         }
     }
@@ -934,7 +924,7 @@ private fun FontEditor(
                     onValueChange = { query = it },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                    placeholder = { Text("Search any Google Font") },
+                    placeholder = { Text("Search Google Fonts") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (downloading) {
@@ -960,16 +950,7 @@ private fun FontEditor(
                 }
                 val everyday = remember(recents) { recents + FontManager.googleSuggestions }
                 val chips = if (typing && matches.isNotEmpty()) matches else everyday
-                Text(
-                    when {
-                        typing && matches.isNotEmpty() -> "Matching fonts"
-                        recents.isNotEmpty() -> "Your recent fonts, then popular picks"
-                        else -> "Popular picks"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
-                )
+                Spacer(Modifier.height(8.dp))
                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                     // Fresh scroll position whenever the list switches between matches and popular picks.
                     val rowState = remember(chips) { LazyListState() }
@@ -986,21 +967,15 @@ private fun FontEditor(
                 TextButton(
                     onClick = { openUrl(ctx, "https://fonts.google.com/") },
                     contentPadding = PaddingValues(horizontal = 0.dp),
-                ) { Text("Browse all fonts on fonts.google.com") }
+                ) { Text("Browse all") }
             }
 
             FontSource.FILE -> Column {
-                Text(
-                    if (spec.source == FontSource.FILE && spec.localFontFile.isNotEmpty()) "Using your font file."
-                    else "Load any .ttf or .otf font from your phone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) {
+                    Text(if (spec.localFontFile.isEmpty()) "Choose .ttf / .otf" else "Change file")
+                }
                 status?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error)
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) {
-                    Text(if (spec.localFontFile.isEmpty()) "Choose font file" else "Choose another file")
                 }
             }
         }
@@ -1023,11 +998,6 @@ private fun FontEditor(
                         applyFont(f)
                     }
                 },
-            )
-            Text(
-                "Some fonts only come in one weight.",
-                style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurfaceVariant,
             )
         }
     }
