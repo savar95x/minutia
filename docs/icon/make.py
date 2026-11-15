@@ -1,42 +1,104 @@
-# Minutia app icon: a geometric "m:" mark on the 108x108 adaptive-icon canvas.
-# The same numbers are hard-coded in app/src/main/res/drawable/ic_launcher_{foreground,monochrome}.xml;
-# change both together. Previews (circle/squircle masks, themed icon, 48px) are written to the current dir.
-# Usage: pip install cairosvg pillow && python3 docs/icon/make.py
-import cairosvg, io
-from PIL import Image, ImageDraw
-BG="#121614"; CREAM="#F0ECDE"; CORAL="#FF8A65"
-SW=8.2            # stroke width
-dx=1.5            # optical centring of the whole mark
-def m_path(dx=dx):
-    x1,x2,x3=31+dx,46+dx,61+dx; yb=66.5; ya=51.5; r=7.5
-    return (f"M{x1},{yb} V{ya} A{r},{r} 0 0 1 {x2},{ya} V{yb} "
-            f"M{x2},{ya} A{r},{r} 0 0 1 {x3},{ya} V{yb}")
-dots=[(73.5+dx,50.5),(73.5+dx,62.5)]; DR=3.5
-def svg(bg=True, mono=False):
-    fg = "#000" if mono else CREAM; acc = "#000" if mono else CORAL
-    b = f'<rect width="108" height="108" fill="{BG}"/>' if bg else ""
-    c = "".join(f'<circle cx="{x}" cy="{y}" r="{DR}" fill="{acc}"/>' for x,y in dots)
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="864" height="864">{b}'
-            f'<path d="{m_path()}" fill="none" stroke="{fg}" stroke-width="{SW}" stroke-linecap="round" stroke-linejoin="round"/>{c}</svg>')
-def png(s): return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=s.encode()))).convert("RGBA")
-full=png(svg())
-full.save("full.png")
-def mask(img,kind,size):
-    W=img.width; a,b=int(W*18/108),int(W*90/108)
-    m=Image.new("L",(W,W),0); d=ImageDraw.Draw(m)
-    if kind=="circle": d.ellipse((a,a,b,b),fill=255)
-    else: d.rounded_rectangle((a,a,b,b),int(W*26/108),fill=255)
-    o=Image.new("RGBA",(W,W),(0,0,0,0)); o.paste(img,(0,0),m)
-    return o.crop((a,a,b,b)).resize((size,size),Image.LANCZOS)
-# themed (monochrome) preview: Android tints the silhouette
-mono=png(svg(bg=False,mono=True)); r,g,b_,a=mono.split()
-themed=Image.new("RGBA",mono.size,(42,52,36,255)); fgc=Image.new("RGBA",mono.size,(200,222,180,255)); themed.paste(fgc,(0,0),a)
-sheet=Image.new("RGB",(900,260),(34,34,38)); x=20
-for img in (full,themed):
-    for kind in ("circle","squircle"):
-        big=mask(img,kind,180); sheet.paste(big,(x,20),big); x+=200
-small=mask(full,"squircle",48); sheet.paste(small,(830,70),small)
-small2=mask(full,"circle",48); sheet.paste(small2,(830,140),small2)
-sheet.save("final_preview.png")
-# 512px store-style PNG for README
-mask(full,"squircle",512).save("icon_512.png")
+#!/usr/bin/env python3
+"""Minutia app icon: Fragment Mono "m" + its square colon (coral), cream on deep ink-green.
+
+Builds the mark from real glyph outlines (fontTools), centred in the 108x108 adaptive-icon canvas, then
+  * writes previews (circle/squircle masks, themed icon, 48px) to the current directory, and
+  * with --write, regenerates the Android vectors:
+      app/src/main/res/drawable/ic_launcher_foreground.xml   (full colour)
+      app/src/main/res/drawable/ic_launcher_monochrome.xml   (themed icons, system-tinted)
+
+Setup (Fragment Mono is OFL; get it from npm since Google Fonts may be blocked):
+  pip install fonttools brotli cairosvg pillow
+  npm pack @fontsource/fragment-mono && mkdir -p /tmp/fm && tar -xzf fontsource-fragment-mono-*.tgz -C /tmp/fm
+  python3 docs/icon/make.py --font /tmp/fm/package/files/fragment-mono-latin-400-normal.woff2 [--write]
+"""
+import argparse, io, os, re
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.boundsPen import BoundsPen
+
+BG, CREAM, CORAL = "#121614", "#F0ECDE", "#FF8A65"
+WIDTH = 42        # width of the whole "m:" mark in dp (canvas is 108, safe zone is the central 66)
+GAP_EM = 0.05     # gap between "m" and ":" in em
+EMBOLDEN = 1.0    # Fragment Mono only ships Regular; a 1dp same-colour stroke gives it icon weight
+
+def mark(fontpath, text="m:"):
+    f = TTFont(fontpath); upm = f["head"].unitsPerEm; gs = f.getGlyphSet(); cmap = f.getBestCmap()
+    parts, x = [], 0.0
+    for i, ch in enumerate(text):
+        name = cmap[ord(ch)]; bp = BoundsPen(gs); gs[name].draw(bp); b = bp.bounds
+        if i: x += GAP_EM * upm
+        parts.append((name, b, x - b[0])); x += b[2] - b[0]
+    s = WIDTH / x
+    min_y = min(p[1][1] for p in parts); max_y = max(p[1][3] for p in parts)
+    ox = 54 - WIDTH / 2; oy = 54 + (max_y - min_y) * s / 2
+    out = []
+    for name, b, dx in parts:
+        pen = SVGPathPen(gs)
+        gs[name].draw(TransformPen(pen, (s, 0, 0, -s, ox + dx * s, oy + min_y * s)))
+        out.append(re.sub(r"-?\d+\.\d+", lambda m: f"{float(m.group()):.2f}".rstrip("0").rstrip("."), pen.getCommands()))
+    return out  # [m path, colon path]
+
+def vector(paths, colors, comment):
+    body = "".join(f'''
+    <path
+        android:pathData="{d}"
+        android:fillColor="{c}"
+        android:strokeColor="{c}"
+        android:strokeWidth="{EMBOLDEN}"
+        android:strokeLineJoin="round" />''' for d, c in zip(paths, colors))
+    return f'''<?xml version="1.0" encoding="utf-8"?>
+<!-- {comment}
+     Generated by docs/icon/make.py from Fragment Mono glyph outlines (OFL). Don't edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">{body}
+</vector>
+'''
+
+def previews(paths):
+    import cairosvg
+    from PIL import Image, ImageDraw
+    def svg(colors, bg=True):
+        s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="864" height="864">'
+        if bg: s += f'<rect width="108" height="108" fill="{BG}"/>'
+        for d, c in zip(paths, colors):
+            s += f'<path d="{d}" fill="{c}" stroke="{c}" stroke-width="{EMBOLDEN}" stroke-linejoin="round"/>'
+        return s + "</svg>"
+    png = lambda s: Image.open(io.BytesIO(cairosvg.svg2png(bytestring=s.encode()))).convert("RGBA")
+    def mask(img, kind, size):
+        W = img.width; a, b = int(W * 18 / 108), int(W * 90 / 108)
+        m = Image.new("L", (W, W), 0); d = ImageDraw.Draw(m)
+        if kind == "circle": d.ellipse((a, a, b, b), fill=255)
+        else: d.rounded_rectangle((a, a, b, b), int(W * 26 / 108), fill=255)
+        o = Image.new("RGBA", (W, W), (0, 0, 0, 0)); o.paste(img, (0, 0), m)
+        return o.crop((a, a, b, b)).resize((size, size), Image.LANCZOS)
+    full = png(svg([CREAM, CORAL]))
+    mono = png(svg(["#000", "#000"], bg=False)).split()[3]
+    themed = Image.new("RGBA", full.size, (42, 52, 36, 255))
+    themed.paste(Image.new("RGBA", full.size, (200, 222, 180, 255)), (0, 0), mono)
+    sheet = Image.new("RGB", (620, 220), (34, 34, 38))
+    for img, pos in ((mask(full, "circle", 180), (20, 20)), (mask(full, "squircle", 180), (220, 20)),
+                     (mask(themed, "circle", 120), (420, 50)), (mask(full, "squircle", 48), (555, 60)),
+                     (mask(full, "circle", 48), (555, 120))):
+        sheet.paste(img, pos, img)
+    sheet.save("icon_preview.png"); mask(full, "squircle", 256).save("icon.png")
+    print("wrote icon_preview.png, icon.png")
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--font", required=True, help="Fragment Mono Regular (.ttf/.otf/.woff2)")
+    ap.add_argument("--write", action="store_true", help="regenerate the Android vector drawables")
+    a = ap.parse_args()
+    paths = mark(a.font)
+    if a.write:
+        res = os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "main", "res", "drawable")
+        open(os.path.join(res, "ic_launcher_foreground.xml"), "w").write(
+            vector(paths, ["#FFF0ECDE", "#FFFF8A65"], "Full-colour foreground: cream \"m\", coral colon."))
+        open(os.path.join(res, "ic_launcher_monochrome.xml"), "w").write(
+            vector(paths, ["#FFFFFFFF", "#FFFFFFFF"], "Themed-icon layer (Android 13+): one colour, tinted by the system."))
+        print("wrote vector drawables")
+    previews(paths)

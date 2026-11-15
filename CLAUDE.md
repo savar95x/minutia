@@ -69,8 +69,10 @@ Fonts are `FontSpec`s: `cfg.clockFont`/`withClockFont()` and `cfg.dateFont`/`wit
 font is used only when `dateFontMode == CUSTOM` (`DEFAULT` = sans-serif 500, `CLOCK` = clock font).
 Old configs' `dateUsesClockFont` migrates to `CLOCK`.
 
-App icon: adaptive vector in `res/drawable/ic_launcher_foreground.xml` + `ic_launcher_monochrome.xml`
-(themed icons), background `@color/ic_launcher_bg`. Source/preview script: `docs/icon/make.py`.
+App icon: Fragment Mono "m" + its square colon (coral) on `@color/ic_launcher_bg` (#121614). Adaptive vector
+`res/drawable/ic_launcher_foreground.xml` + `ic_launcher_monochrome.xml` (themed icons), **generated** by
+`docs/icon/make.py --font <FragmentMono.woff2> --write` from real glyph outlines (setup steps in the script).
+Don't hand-edit the path data; change the script's constants and regenerate.
 
 ## UI conventions and owner preferences
 - Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **Pin preview** (checkbox, app pref

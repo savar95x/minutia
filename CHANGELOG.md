@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.8.1] - 2026-11-15
+
+### Changed
+- App icon redrawn in Fragment Mono: its "m" and square colon, in place of the rounded custom letter.
+
 ## [1.8.0] - 2026-11-15
 
 ### Changed
