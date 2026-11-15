@@ -45,6 +45,9 @@ jobs:
           meta=$(curl -s -A "$UA" https://fonts.google.com/metadata/fonts)
           echo "catalogue: $(echo -n "$meta" | wc -c) bytes, $(echo "$meta" | grep -o '"family": *"[^"]*"' | sort -u | wc -l) families"
           echo "$meta" | grep -o '"family": *"Fragment Mono"' | head -1
+          echo "$meta" | python3 -c "import sys,json; t=sys.stdin.read(); d=json.loads(t[t.index('{'):]); L=d['familyMetadataList']; print('keys:', sorted(L[0].keys())[:30]); print('first:', [(f['family'], f.get('category'), f.get('popularity')) for f in sorted(L, key=lambda f: f.get('popularity', 1e9))[:5]]); print('categories:', sorted({f.get('category') for f in L}))"
+          sub=$(curl -s -A "$UA" "https://fonts.googleapis.com/css2?family=Fragment+Mono&text=12%3A45Fragment" | grep -o "src: *url([^)]*)" | head -1 | sed -E "s/src: *url\\(['\"]?([^)'\"]*).*/\\1/")
+          echo "subset url: $sub"; [ -n "$sub" ] && curl -s -A "$UA" "$sub" | head -c 4 | od -An -tx1
           for fam in "fragment+mono" "Fragment+Mono" "Fragment+Mono:wght@700" "Space+Grotesk:wght@700"; do
             code=$(curl -s -o /tmp/css -w '%{http_code}' -A "$UA" "https://fonts.googleapis.com/css2?family=$fam")
             url=$(grep -o "src: *url([^)]*)" /tmp/css | head -1 | sed -E "s/src: *url\(['\"]?([^)'\"]*).*/\1/")

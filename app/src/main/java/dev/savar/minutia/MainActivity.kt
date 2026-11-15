@@ -985,6 +985,7 @@ private fun FontEditor(
     var query by remember(resetKey) { mutableStateOf(spec.googleFamily) }
     var status by remember(resetKey) { mutableStateOf<String?>(null) }
     var downloading by remember { mutableStateOf(false) }
+    var showBrowser by remember { mutableStateOf(false) }
 
     fun fetch(name: String, weight: Int = current.weight) {
         val typed = name.trim()
@@ -1115,9 +1116,16 @@ private fun FontEditor(
                     }
                 }
                 TextButton(
-                    onClick = { openUrl(ctx, "https://fonts.google.com/") },
+                    onClick = { showBrowser = true },
                     contentPadding = PaddingValues(horizontal = 0.dp),
-                ) { Text("Browse all") }
+                ) { Text("Browse all fonts") }
+                if (showBrowser) {
+                    FontBrowserSheet(
+                        selected = if (spec.source == FontSource.GOOGLE) spec.googleFamily else "",
+                        onPick = { fam -> showBrowser = false; query = fam; fetch(fam) },
+                        onDismiss = { showBrowser = false },
+                    )
+                }
             }
 
             FontSource.FILE -> Column {

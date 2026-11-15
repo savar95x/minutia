@@ -100,41 +100,104 @@ object FontManager {
         DateFontMode.CUSTOM -> typeface(ctx, cfg.dateFont)
     }
 
-    // ---------- Google Fonts catalogue (for exact names + type-ahead) ----------
+    // ---------- Google Fonts catalogue (exact names, categories, type-ahead, browser) ----------
 
     private const val CATALOGUE_URL = "https://fonts.google.com/metadata/fonts"
     private const val CATALOGUE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
-    @Volatile private var catalogue: List<String>? = null
+    /** One Google Fonts family. [category] is Google's ("Sans Serif", "Serif", "Display", "Handwriting", "Monospace"). */
+    data class Family(val name: String, val category: String)
 
-    private fun catalogueFile(ctx: Context) = File(fontsDir(ctx), "catalogue.txt")
+    @Volatile private var entries: List<Family>? = null
 
-    /** Family names already on disk (may be empty until [loadCatalogue] has run once). */
-    fun cachedCatalogue(ctx: Context): List<String> {
-        catalogue?.let { return it }
+    // TSV "name<TAB>category", most popular first. (v1 was catalogue.txt: names only.)
+    private fun catalogueFile(ctx: Context) = File(fontsDir(ctx), "catalogue2.tsv")
+
+    /** Families already on disk, most popular first (empty until [loadCatalogue] has run once). */
+    fun cachedFamilies(ctx: Context): List<Family> {
+        entries?.let { return it }
         val f = catalogueFile(ctx)
         if (!f.exists()) return emptyList()
-        return f.readLines().filter { it.isNotBlank() }.also { catalogue = it }
+        return f.readLines().mapNotNull { line ->
+            val parts = line.split('\t')
+            if (parts[0].isBlank()) null else Family(parts[0], parts.getOrElse(1) { "" })
+        }.also { entries = it }
     }
 
-    /** Downloads Google's list of ~1,900 family names at most once a week. Never throws. */
+    fun cachedCatalogue(ctx: Context): List<String> = cachedFamilies(ctx).map { it.name }
+
+    /** Downloads Google's family list (~1,900) at most once a week. Never throws. */
     suspend fun loadCatalogue(ctx: Context): List<String> = withContext(Dispatchers.IO) {
         val f = catalogueFile(ctx)
         val fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < CATALOGUE_MAX_AGE_MS
         if (!fresh) {
             try {
                 val text = httpGetText(CATALOGUE_URL, USER_AGENTS[0])
-                val names = Regex(""""family"\s*:\s*"([^"]+)"""").findAll(text)
-                    .map { it.groupValues[1] }.distinct().sorted().toList()
-                if (names.size > 500) {
-                    f.writeText(names.joinToString("\n"))
-                    catalogue = names
+                val list = parseCatalogue(text)
+                if (list.size > 500) {
+                    f.writeText(list.joinToString("\n") { "${it.name}\t${it.category}" })
+                    entries = list
                 }
             } catch (e: Exception) {
                 // Offline or endpoint changed: fall back to the cached list / name guessing.
             }
         }
         cachedCatalogue(ctx)
+    }
+
+    private fun parseCatalogue(text: String): List<Family> {
+        // The response starts with an anti-JSON-hijacking prefix like ")]}'".
+        return try {
+            val root = org.json.JSONObject(text.substring(text.indexOf('{')))
+            val arr = root.getJSONArray("familyMetadataList")
+            (0 until arr.length()).map { arr.getJSONObject(it) }
+                .map { Triple(it.optString("family"), it.optString("category"), it.optInt("popularity", Int.MAX_VALUE)) }
+                .filter { it.first.isNotBlank() }
+                .sortedBy { it.third }
+                .map { Family(it.first, it.second) }
+        } catch (e: Exception) {
+            Regex(""""family"\s*:\s*"([^"]+)"""").findAll(text)
+                .map { Family(it.groupValues[1], "") }.distinctBy { it.name }.toList()
+        }
+    }
+
+    // ---------- tiny preview fonts for the browser ----------
+
+    private val previewGate = kotlinx.coroutines.sync.Semaphore(4)
+    private val previewCache = HashMap<String, Typeface?>()
+    const val PREVIEW_TEXT = "12:45"
+
+    /**
+     * A few-KB subset of [family] containing just its name and the sample digits
+     * (Google's `text=` parameter), cached on disk. Null if it can't be fetched.
+     */
+    suspend fun previewTypeface(ctx: Context, family: String): Typeface? = withContext(Dispatchers.IO) {
+        synchronized(previewCache) { if (previewCache.containsKey(family)) return@withContext previewCache[family] }
+        val dir = File(fontsDir(ctx), "preview").apply { mkdirs() }
+        val file = File(dir, "${safe(family)}.ttf")
+        if (!looksLikeFont(file)) {
+            previewGate.acquire()
+            try {
+                val chars = (PREVIEW_TEXT + family).toSet().joinToString("")
+                val url = "https://fonts.googleapis.com/css2?family=${URLEncoder.encode(family, "UTF-8")}" +
+                    "&text=${URLEncoder.encode(chars, "UTF-8")}"
+                for (ua in USER_AGENTS) {
+                    try {
+                        val css = httpGetText(url, ua)
+                        val src = Regex("""src:\s*url\(['"]?([^)'"\s]+)['"]?\)""").find(css)?.groupValues?.get(1) ?: continue
+                        httpDownload(src, file, ua)
+                        if (looksLikeFont(file)) break else file.delete()
+                    } catch (e: Exception) {
+                        file.delete()
+                    }
+                }
+            } finally {
+                previewGate.release()
+            }
+        }
+        val tf = if (looksLikeFont(file)) runCatching { Typeface.createFromFile(file) }.getOrNull() else null
+        synchronized(previewCache) { previewCache[family] = tf }
+        tf
     }
 
     private fun squash(s: String) = s.lowercase().replace(Regex("[^a-z0-9]"), "")
