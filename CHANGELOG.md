@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.7.2] - 2026-11-15
+
+### Fixed
+- Style carousel no longer wobbles when you keep dragging at the end of the row.
+
 ## [1.7.1] - 2026-11-15
 
 ### Changed

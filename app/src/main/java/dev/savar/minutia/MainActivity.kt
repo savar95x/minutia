@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material.icons.filled.Place
@@ -417,6 +418,9 @@ private fun SettingsScreen(launchId: Int) {
                     // so it's obvious there are more styles than the two that fit.
                     val styles = remember { ClockStyle.entries.toList() }
                     val carouselState = rememberCarouselState { styles.size }
+                    // No overscroll stretch here: it fights the carousel's edge masking and makes
+                    // the row wobble when you keep dragging at either end.
+                    CompositionLocalProvider(LocalOverscrollFactory provides null) {
                     HorizontalUncontainedCarousel(
                         state = carouselState,
                         itemWidth = 132.dp,
@@ -466,6 +470,7 @@ private fun SettingsScreen(launchId: Int) {
                                 modifier = Modifier.padding(top = 6.dp),
                             )
                         }
+                    }
                     }
                 }
 
