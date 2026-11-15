@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.9.0] - 2026-11-15
+
+### Added
+- App font: choose the font of Minutia's own screens from the ⋮ menu (system fonts, any Google Font, or a font file). Defaults to the phone's system font.
+
 ## [1.8.3] - 2026-11-15
 
 ### Changed

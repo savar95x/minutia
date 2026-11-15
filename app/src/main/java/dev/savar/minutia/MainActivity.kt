@@ -11,6 +11,9 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Typography
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Checkbox
 import androidx.compose.animation.slideInVertically
@@ -198,7 +201,14 @@ private fun AppTheme(content: @Composable () -> Unit) {
         dark -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    AppFont.load(ctx)
+    val spec = AppFont.spec
+    val version = AppFont.version
+    val typography = remember(spec, version) {
+        if (spec.source == FontSource.SYSTEM && spec.systemFamily == "sans-serif") Typography()
+        else Typography().withFamily(AppFont.family(ctx))
+    }
+    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
 }
 
 private val SWATCHES = listOf(
@@ -287,6 +297,7 @@ private fun SettingsScreen(launchId: Int) {
     // App preference (not per widget): pinned preview stays at the top like a widget editor;
     // otherwise it's the first item of the page and scrolls away like Wallpaper & style.
     val uiPrefs = remember { ctx.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+    var showAppFont by remember { mutableStateOf(false) }
     var pinPreview by remember { mutableStateOf(uiPrefs.getBoolean("pin_preview", false)) }
     val previewCard: @Composable (Modifier) -> Unit = { mod ->
         PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, mod)
@@ -303,6 +314,11 @@ private fun SettingsScreen(launchId: Int) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("App font…") },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = { menuOpen = false; showAppFont = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Pin preview") },
                                 leadingIcon = { Icon(Icons.Default.Place, contentDescription = null) },
@@ -706,6 +722,33 @@ private fun SettingsScreen(launchId: Int) {
         }
     }
 
+    if (showAppFont) {
+        val scope = rememberCoroutineScope()
+        ModalBottomSheet(onDismissRequest = { showAppFont = false }) {
+            Column(
+                Modifier
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 24.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text("App font", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
+                FontEditor(
+                    spec = AppFont.spec,
+                    resetKey = "appfont",
+                    catalogueVersion = catalogueVersion,
+                    recentKey = fontVersion,
+                    onPreview = {},
+                    onApply = { f ->
+                        AppFont.set(ctx, f)
+                        scope.launch { AppFont.ensureWeights(ctx) }
+                    },
+                    onFontLoaded = { fontVersion++ },
+                    showWeight = false,
+                )
+            }
+        }
+    }
+
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
@@ -929,6 +972,7 @@ private fun FontEditor(
     onPreview: (FontSpec) -> Unit,
     onApply: (FontSpec) -> Unit,
     onFontLoaded: () -> Unit,
+    showWeight: Boolean = true,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1087,7 +1131,7 @@ private fun FontEditor(
         }
         }
 
-        Reveal(tab != FontSource.FILE) {
+        Reveal(tab != FontSource.FILE && showWeight) {
             Spacer(Modifier.height(10.dp))
             LabeledSlider(
                 label = "Weight",

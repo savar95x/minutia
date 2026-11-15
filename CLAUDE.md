@@ -62,6 +62,7 @@ python3 scripts/inspect-apk.py out/Minutia-X.Y.Z.apk "Some new label"   # pip in
 | `WidgetConfig.kt` | Per-widget settings, JSON in SharedPreferences `widget_configs` (`w_<id>`); new widgets inherit the last edited config (`last`). `FontSpec`, `DateFontMode`, enums. |
 | `FontManager.kt` | System fonts, Google Fonts download + catalogue + type-ahead, local .ttf/.otf import (`filesDir/fonts`), recent fonts. `typeface(ctx, FontSpec)` resolves any font. |
 | `DateFormats.kt` | Date presets and custom patterns: SimpleDateFormat letters or strftime `%` codes (`fromStrftime`). Invalid patterns aren't saved; renderer falls back to the first preset. |
+| `AppFont.kt` | Font of the app's own UI (not the widget): `FontSpec` in prefs `ui`/`app_font`, observable state read by `AppTheme`; Google fonts get 400/500/700 downloaded so the type hierarchy survives. Default = system font. |
 | `TapActivity.kt` | Invisible trampoline for widget taps (see Gotchas). |
 | `MainActivity.kt` | Compose settings screen + widget configure/reconfigure activity. Composables: `SettingsScreen`, `PreviewCard`, `FontEditor` (reusable System/Google/File picker + weight, used for clock and date), `Section`, `SwitchRow`, `LabeledSlider`, `ColorPicker`, `Segmented`, `Chip`, `ChipFlow`, `Reveal`, `AppPickerDialog`. |
 
@@ -76,7 +77,7 @@ App icon: Inter Display **ExtraBold** "m:", cream `#F0ECDE` "m" + coral `#FF8A65
 Don't hand-edit the path data; change the script's constants and regenerate. Full spec: `docs/icon/DESIGN.md`.
 
 ## UI conventions and owner preferences
-- Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **Pin preview** (checkbox, app pref
+- Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **App font…** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview** (checkbox, app pref
   `ui`/`pin_preview`), **Reset widget…** (confirm dialog, destructive), version.
 - `PreviewCard` (200dp) is the first item of the scrolling settings (scrolls away, like Wallpaper & style),
   or pinned above the list when Pin preview is on (then the app bar has no scrolled tint).
