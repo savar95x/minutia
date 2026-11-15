@@ -4,13 +4,11 @@ Why things are the way they are, including what was tried and rejected. Newest f
 Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## Visual identity
-- **App icon (1.8.1)**: Fragment Mono "m" with its square colon in coral, cream on deep ink-green. Built from
-  the font's real glyph outlines (lightly emboldened, since Fragment Mono only ships Regular) by
-  `docs/icon/make.py`. Fragment Mono is the owner's favourite font and its square colon reads like a digital
-  clock. Inter Display SemiBold "m:" was the runner-up.
-  - 1.8.0 used a custom rounded-stroke "m:" (chosen from five concepts: abstract pills, pills with digits,
-    "m:", a colon-clock, cropped "9:4"). The owner said the rounded letterform felt like the Meesho logo and
-    asked for a real typeface; avoid soft, bubbly letterforms.
+- **App icon (1.8.2)**: Inter Display SemiBold "m:" in Material You tonal colours (sage "m", peach round colon,
+  muted green container), built from real glyph outlines by `docs/icon/make.py`. The owner wants it
+  "Material UI-ish", minimal, and in Inter.
+  - 1.8.1 (Fragment Mono "m" + square colon): rejected; owner disliked it, especially the square colon.
+  - 1.8.0 (custom rounded-stroke "m:", ink background): felt like the Meesho logo. Avoid bubbly letterforms.
 - **Name (1.1.0)**: "Minutia" (minute + minutiae, tagline *Sweat the small stuff*). Other candidates were
   Kern, Fontime, Halfpast and Dialtone. Glyph was avoided (Nothing's trademark), Tempo/Chrono/Epoch are crowded.
 

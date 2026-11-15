@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.8.2] - 2026-11-15
+
+### Changed
+- App icon redrawn in Inter with a round colon and Material You tonal colours (sage on muted green, peach colon).
+
 ## [1.8.1] - 2026-11-15
 
 ### Changed
