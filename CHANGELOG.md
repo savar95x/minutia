@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.8.0] - 2026-11-15
+
+### Changed
+- New app icon: a geometric "m" with a coral clock colon. Adapts to round/squircle launcher shapes and supports Android's themed (monochrome) icons.
+
+### Added
+- Repo handoff for AI agents and contributors: restructured `CLAUDE.md`, `AGENTS.md`/`GEMINI.md` pointers, design history in `docs/DECISIONS.md`, helper scripts in `scripts/` (wait for CI, fetch and inspect the APK, turn screen recordings into frames).
+
 ## [1.7.3] - 2026-11-15
 
 ### Fixed
