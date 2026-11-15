@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.10.1] - 2026-11-15
+
+### Changed
+- App icon colours: tile `#1C1C1E`, cream `#EEE7DC`, accent `#E2957A`.
+
 ## [1.10.0] - 2026-11-15
 
 ### Added

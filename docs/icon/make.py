@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minutia app icon: Inter Display ExtraBold "m:", cream "m" + coral round colon on deep ink-green.
+"""Minutia app icon: Inter Display ExtraBold "m:", cream "m" + accent round colon on a near-black tile.
 
 Builds the mark from real glyph outlines (fontTools), centred in the 108x108 adaptive-icon canvas, then
   * writes previews (circle/squircle masks, themed icon, 48px) to the current directory, and
@@ -17,7 +17,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.boundsPen import BoundsPen
 
-BG, CREAM, CORAL = "#121614", "#F0ECDE", "#FF8A65"   # container, "m", colon (keep BG in sync with @color/ic_launcher_bg)
+BG, CREAM, CORAL = "#1C1C1E", "#EEE7DC", "#E2957A"   # container, "m", colon (keep BG in sync with @color/ic_launcher_bg)
 WIDTH = 44        # width of the whole "m:" mark in dp (canvas is 108, safe zone is the central 66)
 GAP_EM = 0.07     # gap between "m" and ":" in em
 EMBOLDEN = 0      # >0 adds a same-colour stroke (useful for fonts that only ship a light weight)

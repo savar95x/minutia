@@ -14,9 +14,9 @@ display at once (minute + minutiae: *sweat the small stuff*). Two shapes and two
 ## Colour
 | Role | Hex | Notes |
 |---|---|---|
-| Background | `#121614` | Deep ink with a hint of green. `@color/ic_launcher_bg` |
-| Letter "m" | `#F0ECDE` | Warm cream, not pure white |
-| Colon | `#FF8A65` | Coral accent, the only colour in the mark |
+| Tile | `#1C1C1E` | Near-black. `@color/ic_launcher_bg` |
+| Cream (ink) | `#EEE7DC` | The "m". Warm cream, not pure white |
+| Accent | `#E2957A` | The colon. Muted terracotta, the only colour in the mark |
 
 Themed icon (Android 13+): the monochrome layer is the same two shapes in one colour; the system tints it
 to match the wallpaper.
@@ -69,4 +69,5 @@ squircle masks, themed icon, 48 px) for checking at real launcher size.
 | 1.8.0 | Custom rounded-stroke "m:" (picked from five concepts) | Felt like the Meesho logo |
 | 1.8.1 | Fragment Mono "m" with square colon | Disliked, especially the square colon |
 | 1.8.2 | Inter Display SemiBold "m:", Material You tonal sage/peach on green | Liked the "m", not the colours |
-| **1.8.3** | **Inter Display ExtraBold "m:", cream + coral on ink** | **Current** |
+| 1.8.3 | Inter Display ExtraBold "m:", cream + coral on ink | Bolder "m" approved |
+| **1.10.1** | **Same mark, owner palette: tile `#1C1C1E`, cream `#EEE7DC`, accent `#E2957A`** | **Current** |

@@ -71,8 +71,8 @@ Fonts are `FontSpec`s: `cfg.clockFont`/`withClockFont()` and `cfg.dateFont`/`wit
 font is used only when `dateFontMode == CUSTOM` (`DEFAULT` = sans-serif 500, `CLOCK` = clock font).
 Old configs' `dateUsesClockFont` migrates to `CLOCK`.
 
-App icon: Inter Display **ExtraBold** "m:", cream `#F0ECDE` "m" + coral `#FF8A65` round colon on
-`@color/ic_launcher_bg` (#121614 deep ink). Adaptive vector `res/drawable/ic_launcher_foreground.xml`
+App icon: Inter Display **ExtraBold** "m:", cream `#EEE7DC` "m" + accent `#E2957A` round colon on
+`@color/ic_launcher_bg` (tile `#1C1C1E`). The palette is the owner's; don't change it. Adaptive vector `res/drawable/ic_launcher_foreground.xml`
 + `ic_launcher_monochrome.xml` (themed icons), **generated** by
 `docs/icon/make.py --font InterDisplay-ExtraBold.otf --write` from real glyph outlines.
 Don't hand-edit the path data; change the script's constants and regenerate. Full spec: `docs/icon/DESIGN.md`.
