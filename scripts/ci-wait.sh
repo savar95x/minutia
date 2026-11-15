@@ -23,7 +23,8 @@ for i in $(seq 1 90); do
       exit 1
     fi
     v=$(grep -E '^VERSION_NAME=' version.properties | cut -d= -f2)
-    if gh release view "v$v" >/dev/null 2>&1; then echo "Release v$v is published."; fi
+    latest=$(gh api "repos/{owner}/{repo}/releases/latest" --jq .tag_name 2>/dev/null || true)
+    if [ "$latest" = "v$v" ]; then echo "Release v$v is published (latest)."; else echo "No new release (latest is ${latest:-none}; version.properties says $v)."; fi
     exit 0
   fi
   sleep 15
