@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Checkbox
 import androidx.compose.animation.slideInVertically
@@ -411,49 +413,58 @@ private fun SettingsScreen(launchId: Int) {
 
                 // ---------- style ----------
                 Section("Style") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(ClockStyle.entries.toList()) { style ->
-                            val thumb = remember(cfg, style, minuteTick, fontVersion) {
-                                val d = ctx.resources.displayMetrics.density
-                                ClockRenderer.render(
-                                    ctx, cfg.copy(style = style, sizePercent = 100),
-                                    (150 * d).toInt(), (84 * d).toInt(), d * 0.6f,
-                                ).asImageBitmap()
+                    // Material 3 uncontained carousel: the next card is always cut off at the edge,
+                    // so it's obvious there are more styles than the two that fit.
+                    val styles = remember { ClockStyle.entries.toList() }
+                    val carouselState = rememberCarouselState { styles.size }
+                    HorizontalUncontainedCarousel(
+                        state = carouselState,
+                        itemWidth = 132.dp,
+                        itemSpacing = 8.dp,
+                        modifier = Modifier.fillMaxWidth().height(116.dp),
+                    ) { i ->
+                        val style = styles[i]
+                        val thumb = remember(cfg, style, minuteTick, fontVersion) {
+                            val d = ctx.resources.displayMetrics.density
+                            ClockRenderer.render(
+                                ctx, cfg.copy(style = style, sizePercent = 100),
+                                (132 * d).toInt(), (84 * d).toInt(), d * 0.6f,
+                            ).asImageBitmap()
+                        }
+                        val selected = style == cfg.style
+                        val outline by animateColorAsState(
+                            if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
+                        )
+                        val labelColor by animateColorAsState(
+                            if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
+                        )
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .maskClip(MaterialTheme.shapes.large)
+                                .clickable {
+                                    if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    update(cfg.copy(style = style))
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(84.dp)
+                                    .clip(MaterialTheme.shapes.large)
+                                    .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
+                                    .border(BorderStroke(3.dp, outline), MaterialTheme.shapes.large),
+                            ) {
+                                Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
                             }
-                            val selected = style == cfg.style
-                            val cardScale by animateFloatAsState(
-                                if (selected) 1f else 0.93f,
-                                spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
-                                label = "cardScale",
+                            Text(
+                                style.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = labelColor,
+                                maxLines = 1,
+                                modifier = Modifier.padding(top = 6.dp),
                             )
-                            val outline by animateColorAsState(
-                                if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
-                            )
-                            val labelColor by animateColorAsState(
-                                if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
-                            )
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    Modifier
-                                        .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
-                                        .size(width = 150.dp, height = 84.dp)
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
-                                        .border(BorderStroke(3.dp, outline), RoundedCornerShape(18.dp))
-                                        .clickable {
-                                            if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            update(cfg.copy(style = style))
-                                        },
-                                ) {
-                                    Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
-                                }
-                                Text(
-                                    style.label,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = labelColor,
-                                    modifier = Modifier.padding(top = 4.dp),
-                                )
-                            }
                         }
                     }
                 }
