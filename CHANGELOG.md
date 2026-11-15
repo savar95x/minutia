@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.10.0] - 2026-11-15
+
+### Added
+- Font browser: "Browse all fonts" opens a full list of Google Fonts, most popular first, with search and category filters (Sans, Serif, Display, Mono, Handwriting). Each font previews its name and "12:45" in its own typeface. Works for the clock, date and app fonts.
+
 ## [1.9.0] - 2026-11-15
 
 ### Added

@@ -151,6 +151,7 @@ object FontManager {
             val root = org.json.JSONObject(text.substring(text.indexOf('{')))
             val arr = root.getJSONArray("familyMetadataList")
             (0 until arr.length()).map { arr.getJSONObject(it) }
+                .filterNot { it.optBoolean("isBrandFont", false) } // e.g. Google Sans: not downloadable
                 .map { Triple(it.optString("family"), it.optString("category"), it.optInt("popularity", Int.MAX_VALUE)) }
                 .filter { it.first.isNotBlank() }
                 .sortedBy { it.third }

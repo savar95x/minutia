@@ -63,6 +63,7 @@ python3 scripts/inspect-apk.py out/Minutia-X.Y.Z.apk "Some new label"   # pip in
 | `FontManager.kt` | System fonts, Google Fonts download + catalogue + type-ahead, local .ttf/.otf import (`filesDir/fonts`), recent fonts. `typeface(ctx, FontSpec)` resolves any font. |
 | `DateFormats.kt` | Date presets and custom patterns: SimpleDateFormat letters or strftime `%` codes (`fromStrftime`). Invalid patterns aren't saved; renderer falls back to the first preset. |
 | `AppFont.kt` | Font of the app's own UI (not the widget): `FontSpec` in prefs `ui`/`app_font`, observable state read by `AppTheme`; Google fonts get 400/500/700 downloaded so the type hierarchy survives. Default = system font. |
+| `FontBrowser.kt` | `FontBrowserSheet`: full-height sheet of all Google Fonts (popularity order, search, category chips), rows preview name + "12:45" via `FontManager.previewTypeface` (Google `text=` subset, few KB, cached in `filesDir/fonts/preview`, max 4 concurrent). Opened from "Browse all fonts" in `FontEditor`. |
 | `TapActivity.kt` | Invisible trampoline for widget taps (see Gotchas). |
 | `MainActivity.kt` | Compose settings screen + widget configure/reconfigure activity. Composables: `SettingsScreen`, `PreviewCard`, `FontEditor` (reusable System/Google/File picker + weight, used for clock and date), `Section`, `SwitchRow`, `LabeledSlider`, `ColorPicker`, `Segmented`, `Chip`, `ChipFlow`, `Reveal`, `AppPickerDialog`. |
 
@@ -99,7 +100,7 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
   exact alarm, not a `TextClock`.
 - **Google Fonts names are case-sensitive** in the CSS API (`fragment mono` → 400, `Fragment Mono` → 200).
   `FontManager` downloads `fonts.google.com/metadata/fonts` (~2.7 MB, ~1,960 families, cached weekly in
-  `filesDir/fonts/catalogue.txt`) to map typed names to official ones and for type-ahead, then falls back
+  `filesDir/fonts/catalogue2.tsv` as `name<TAB>category`, popularity order, brand fonts excluded) to map typed names to official ones and for type-ahead, then falls back
   to Title Case + known acronyms (IBM, DM, EB, PT…).
 - **Google Fonts format depends on User-Agent.** `curl/8.5.0` and an Android 4 UA get TTF; IE6 gets EOT and
   Safari 5 gets WOFF, which Android can't load. Files are validated by magic bytes
