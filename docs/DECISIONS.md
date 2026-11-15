@@ -4,9 +4,10 @@ Why things are the way they are, including what was tried and rejected. Newest f
 Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## Visual identity
-- **App icon (1.8.2)**: Inter Display SemiBold "m:" in Material You tonal colours (sage "m", peach round colon,
-  muted green container), built from real glyph outlines by `docs/icon/make.py`. The owner wants it
-  "Material UI-ish", minimal, and in Inter.
+- **App icon (1.8.3)**: Inter Display ExtraBold "m:", cream "m" + coral round colon on deep ink-green,
+  built from real glyph outlines by `docs/icon/make.py`. Owner likes the Inter "m", wanted it bolder, and
+  prefers these original colours.
+  - 1.8.2 (Inter SemiBold, Material You tonal sage/peach on green): liked the "m", not the colours.
   - 1.8.1 (Fragment Mono "m" + square colon): rejected; owner disliked it, especially the square colon.
   - 1.8.0 (custom rounded-stroke "m:", ink background): felt like the Meesho logo. Avoid bubbly letterforms.
 - **Name (1.1.0)**: "Minutia" (minute + minutiae, tagline *Sweat the small stuff*). Other candidates were

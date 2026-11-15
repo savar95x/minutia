@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minutia app icon: Inter Display SemiBold "m:" in Material You tonal colours (sage "m", peach colon, green container).
+"""Minutia app icon: Inter Display ExtraBold "m:", cream "m" + coral round colon on deep ink-green.
 
 Builds the mark from real glyph outlines (fontTools), centred in the 108x108 adaptive-icon canvas, then
   * writes previews (circle/squircle masks, themed icon, 48px) to the current directory, and
@@ -9,7 +9,7 @@ Builds the mark from real glyph outlines (fontTools), centred in the 108x108 ada
 
 Setup (Inter is OFL; on Debian/Ubuntu: apt install fonts-inter, or `npm pack @fontsource/inter`):
   pip install fonttools brotli cairosvg pillow
-  python3 docs/icon/make.py --font /usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf [--write]
+  python3 docs/icon/make.py --font /usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf [--write]
 """
 import argparse, io, os, re
 from fontTools.ttLib import TTFont
@@ -17,7 +17,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.boundsPen import BoundsPen
 
-BG, CREAM, CORAL = "#2B3A2E", "#D6E8CF", "#FFB59E"   # container, "m", colon (keep BG in sync with @color/ic_launcher_bg)
+BG, CREAM, CORAL = "#121614", "#F0ECDE", "#FF8A65"   # container, "m", colon (keep BG in sync with @color/ic_launcher_bg)
 WIDTH = 44        # width of the whole "m:" mark in dp (canvas is 108, safe zone is the central 66)
 GAP_EM = 0.07     # gap between "m" and ":" in em
 EMBOLDEN = 0      # >0 adds a same-colour stroke (useful for fonts that only ship a light weight)
@@ -90,14 +90,14 @@ def previews(paths):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--font", required=True, help="Inter Display SemiBold (.otf/.ttf/.woff2)")
+    ap.add_argument("--font", required=True, help="Inter Display ExtraBold (.otf/.ttf/.woff2)")
     ap.add_argument("--write", action="store_true", help="regenerate the Android vector drawables")
     a = ap.parse_args()
     paths = mark(a.font)
     if a.write:
         res = os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "main", "res", "drawable")
         open(os.path.join(res, "ic_launcher_foreground.xml"), "w").write(
-            vector(paths, ["#FF" + CREAM[1:], "#FF" + CORAL[1:]], "Full-colour foreground: sage \"m\", peach colon."))
+            vector(paths, ["#FF" + CREAM[1:], "#FF" + CORAL[1:]], "Full-colour foreground: cream \"m\", coral colon."))
         open(os.path.join(res, "ic_launcher_monochrome.xml"), "w").write(
             vector(paths, ["#FFFFFFFF", "#FFFFFFFF"], "Themed-icon layer (Android 13+): one colour, tinted by the system."))
         print("wrote vector drawables")
