@@ -73,7 +73,7 @@ App icon: Inter Display **ExtraBold** "m:", cream `#F0ECDE` "m" + coral `#FF8A65
 `@color/ic_launcher_bg` (#121614 deep ink). Adaptive vector `res/drawable/ic_launcher_foreground.xml`
 + `ic_launcher_monochrome.xml` (themed icons), **generated** by
 `docs/icon/make.py --font InterDisplay-ExtraBold.otf --write` from real glyph outlines.
-Don't hand-edit the path data; change the script's constants and regenerate.
+Don't hand-edit the path data; change the script's constants and regenerate. Full spec: `docs/icon/DESIGN.md`.
 
 ## UI conventions and owner preferences
 - Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **Pin preview** (checkbox, app pref
