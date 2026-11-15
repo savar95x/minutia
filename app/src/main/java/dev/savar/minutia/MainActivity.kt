@@ -11,9 +11,6 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.LocalOverscrollFactory
-import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Checkbox
 import androidx.compose.animation.slideInVertically
@@ -97,6 +94,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -414,63 +412,57 @@ private fun SettingsScreen(launchId: Int) {
 
                 // ---------- style ----------
                 Section("Style") {
-                    // Material 3 uncontained carousel: the next card is always cut off at the edge,
-                    // so it's obvious there are more styles than the two that fit.
+                    // Plain horizontal list (the Material carousel jittered at its ends). Cards are
+                    // 132dp so the next one is always cut off at the edge, hinting there are more.
                     val styles = remember { ClockStyle.entries.toList() }
-                    val carouselState = rememberCarouselState { styles.size }
-                    // No overscroll stretch here: it fights the carousel's edge masking and makes
-                    // the row wobble when you keep dragging at either end.
-                    CompositionLocalProvider(LocalOverscrollFactory provides null) {
-                    HorizontalUncontainedCarousel(
-                        state = carouselState,
-                        itemWidth = 132.dp,
-                        itemSpacing = 8.dp,
-                        modifier = Modifier.fillMaxWidth().height(116.dp),
-                    ) { i ->
-                        val style = styles[i]
-                        val thumb = remember(cfg, style, minuteTick, fontVersion) {
-                            val d = ctx.resources.displayMetrics.density
-                            ClockRenderer.render(
-                                ctx, cfg.copy(style = style, sizePercent = 100),
-                                (132 * d).toInt(), (84 * d).toInt(), d * 0.6f,
-                            ).asImageBitmap()
-                        }
-                        val selected = style == cfg.style
-                        val outline by animateColorAsState(
-                            if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
-                        )
-                        val labelColor by animateColorAsState(
-                            if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
-                        )
-                        Column(
-                            Modifier
-                                .fillMaxSize()
-                                .maskClip(MaterialTheme.shapes.large)
-                                .clickable {
-                                    if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    update(cfg.copy(style = style))
-                                },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(84.dp)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
-                                    .border(BorderStroke(3.dp, outline), MaterialTheme.shapes.large),
-                            ) {
-                                Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
+                    val rowState = rememberLazyListState(
+                        initialFirstVisibleItemIndex = (styles.indexOf(cfg.style) - 1).coerceAtLeast(0),
+                    )
+                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(styles) { style ->
+                            val thumb = remember(cfg, style, minuteTick, fontVersion) {
+                                val d = ctx.resources.displayMetrics.density
+                                ClockRenderer.render(
+                                    ctx, cfg.copy(style = style, sizePercent = 100),
+                                    (132 * d).toInt(), (84 * d).toInt(), d * 0.6f,
+                                ).asImageBitmap()
                             }
-                            Text(
-                                style.label,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = labelColor,
-                                maxLines = 1,
-                                modifier = Modifier.padding(top = 6.dp),
+                            val selected = style == cfg.style
+                            val outline by animateColorAsState(
+                                if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
                             )
+                            val labelColor by animateColorAsState(
+                                if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
+                            )
+                            Column(
+                                Modifier
+                                    .width(132.dp)
+                                    .clip(MaterialTheme.shapes.large)
+                                    .clickable {
+                                        if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        update(cfg.copy(style = style))
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(84.dp)
+                                        .clip(MaterialTheme.shapes.large)
+                                        .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
+                                        .border(BorderStroke(3.dp, outline), MaterialTheme.shapes.large),
+                                ) {
+                                    Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
+                                }
+                                Text(
+                                    style.label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = labelColor,
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                                )
+                            }
                         }
-                    }
                     }
                 }
 

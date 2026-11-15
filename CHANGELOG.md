@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.7.3] - 2026-11-15
+
+### Fixed
+- Style row no longer jitters at its ends: it's now a standard horizontal list (the Material carousel component itself was wobbling). The next style still peeks in at the edge, and the row opens scrolled to your current style.
+
 ## [1.7.2] - 2026-11-15
 
 ### Fixed
