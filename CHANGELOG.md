@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.11.0] - 2026-11-16
+
+### Added
+- Pure black: AMOLED option in the ⋮ menu for Minutia's dark theme.
+- Source code: link to the GitHub repo in the ⋮ menu.
+
+### Fixed
+- Widget showing an old time after waking the phone: it now redraws as soon as the screen turns on or the phone is unlocked, and re-arms its minute alarm whenever the app starts.
+
 ## [1.10.1] - 2026-11-15
 
 ### Changed

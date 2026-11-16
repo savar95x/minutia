@@ -1,6 +1,10 @@
 package dev.savar.minutia
 
 import android.app.AlarmManager
+import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -50,6 +54,48 @@ open class ClockWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_TICK = "dev.savar.minutia.TICK"
+    }
+}
+
+/**
+ * Process start hook. Whenever Minutia's process is alive it listens for the screen turning on / unlock and
+ * redraws straight away, so a minute alarm that OxygenOS delayed or dropped while the screen was off
+ * never leaves a stale time on screen. Also re-arms the minute alarm on every process start.
+ */
+class MinutiaApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        ScreenOnRefresher.register(this)
+        TickScheduler.schedule(this)
+    }
+}
+
+object ScreenOnRefresher {
+    private var registered = false
+    private var lastRefresh = 0L
+
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context, intent: Intent) {
+            // SCREEN_ON and USER_PRESENT often arrive together; one redraw is enough.
+            val now = System.currentTimeMillis()
+            if (now - lastRefresh < 1_000L) return
+            lastRefresh = now
+            if (WidgetUpdater.ids(ctx).isEmpty()) return
+            WidgetUpdater.updateAll(ctx)
+            TickScheduler.schedule(ctx)
+        }
+    }
+
+    fun register(ctx: Context) {
+        if (registered) return
+        registered = true
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        runCatching {
+            ContextCompat.registerReceiver(ctx.applicationContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }.onFailure { registered = false }
     }
 }
 

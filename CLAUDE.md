@@ -86,7 +86,9 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
 
 ## UI conventions and owner preferences
 - Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **App font…** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview** (checkbox, app pref
-  `ui`/`pin_preview`), **Reset widget…** (confirm dialog, destructive), version.
+  `ui`/`pin_preview`), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark mode only, page/surface
+  black, section containers stay tonal), **Reset widget…** (confirm dialog, destructive), divider, **Source code**
+  (opens the GitHub repo), version.
 - `PreviewCard` (200dp) is the first item of the scrolling settings (scrolls away, like Wallpaper & style),
   or pinned above the list when Pin preview is on (then the app bar has no scrolled tint).
 - `Section(title)` = primary-coloured label above a `surfaceContainer`, `extraLarge`-shape group.
@@ -119,6 +121,12 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
 - **Widget taps go through `TapActivity`** (Theme.NoDisplay trampoline), which resolves the clock at tap time:
   SHOW_ALARMS → known OEM clock packages → any launchable app whose package contains "clock".
   `TapAction.APP` launches a user-picked package. Needs the MAIN/LAUNCHER `<queries>` entry.
+- **Stale time after waking the phone**: the widget is a bitmap, so it's only as fresh as the last tick; the
+  stock clock widget is a launcher-drawn `TextClock` and never depends on the app. `MinutiaApp` registers a
+  runtime SCREEN_ON/USER_PRESENT receiver (`ScreenOnRefresher`) that redraws on wake while the process lives,
+  and re-arms the alarm on every process start. OxygenOS also has its own **Allow auto-launch / Allow background
+  activity** toggles (App info → Battery usage), separate from Android's Unrestricted; with auto-launch off it
+  can block the alarm from restarting a killed process, so the widget freezes until the 30-min system update.
 - OxygenOS kills background work aggressively. The Battery row offers "Fix"
   (`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
 - Material 3 `HorizontalUncontainedCarousel` jitters at its ends on device, even with overscroll disabled.

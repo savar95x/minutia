@@ -138,6 +138,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -196,11 +199,16 @@ class MainActivity : ComponentActivity() {
 private fun AppTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val ctx = LocalContext.current
-    val scheme = when {
+    val base = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         dark -> darkColorScheme()
         else -> lightColorScheme()
     }
+    ThemePrefs.load(ctx)
+    // Pure black (AMOLED): only the page goes black; section cards keep their tonal containers.
+    val scheme = if (dark && ThemePrefs.pureBlack) {
+        base.copy(background = Color.Black, surface = Color.Black, surfaceDim = Color.Black, surfaceContainerLowest = Color.Black)
+    } else base
     AppFont.load(ctx)
     val spec = AppFont.spec
     val version = AppFont.version
@@ -210,6 +218,41 @@ private fun AppTheme(content: @Composable () -> Unit) {
     }
     MaterialTheme(colorScheme = scheme, typography = typography, content = content)
 }
+
+/** App-wide theme preferences (prefs `ui`), observable so the theme updates immediately. */
+object ThemePrefs {
+    private const val KEY_PURE_BLACK = "pure_black"
+    var pureBlack by mutableStateOf(false)
+        private set
+    private var loaded = false
+
+    fun load(ctx: Context) {
+        if (loaded) return
+        loaded = true
+        pureBlack = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean(KEY_PURE_BLACK, false)
+    }
+
+    fun setPureBlack(ctx: Context, on: Boolean) {
+        pureBlack = on
+        ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putBoolean(KEY_PURE_BLACK, on).apply()
+    }
+}
+
+const val SOURCE_URL = "https://github.com/savar95x/minutia"
+
+/** 24dp filled icon from Material Symbols path data (material-icons-core lacks these). */
+private fun symbol(name: String, path: String) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
+    .addPath(addPathNodes(path), fill = SolidColor(Color.Black))
+    .build()
+
+private val ContrastIcon = symbol(
+    "Contrast",
+    "M12,22c5.52,0 10,-4.48 10,-10S17.52,2 12,2 2,6.48 2,12s4.48,10 10,10zM13,4.07c3.94,0.49 7,3.85 7,7.93s-3.06,7.44 -7,7.93L13,4.07z",
+)
+private val CodeIcon = symbol(
+    "Code",
+    "M9.4,16.6L4.8,12l4.6,-4.6L8,6l-6,6 6,6 1.4,-1.4zM14.6,16.6l4.6,-4.6 -4.6,-4.6L16,6l6,6 -6,6 -1.4,-1.4z",
+)
 
 private val SWATCHES = listOf(
     0xFFFFFFFF, 0xFFFFF4E0, 0xFFFFB59E, 0xFFFF7A59, 0xFFFF8FAB, 0xFFC9B6FF, 0xFF9AD0FF,
@@ -287,6 +330,7 @@ private fun SettingsScreen(launchId: Int) {
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var menuOpen by remember { mutableStateOf(false) }
+    val systemDark = isSystemInDarkTheme()
     var confirmReset by remember { mutableStateOf(false) }
     val version = remember {
         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
@@ -330,11 +374,28 @@ private fun SettingsScreen(launchId: Int) {
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text("Pure black") },
+                                leadingIcon = { Icon(ContrastIcon, contentDescription = null) },
+                                trailingIcon = { Checkbox(checked = ThemePrefs.pureBlack, onCheckedChange = null) },
+                                onClick = { ThemePrefs.setPureBlack(ctx, !ThemePrefs.pureBlack); menuOpen = false },
+                                enabled = systemDark,
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Reset widget…") },
                                 leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
                                 onClick = { menuOpen = false; confirmReset = true },
                             )
                             HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Source code") },
+                                leadingIcon = { Icon(CodeIcon, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    runCatching {
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    }
+                                },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Version $version") },
                                 leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
