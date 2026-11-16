@@ -4,9 +4,10 @@ Why things are the way they are, including what was tried and rejected. Newest f
 Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## Visual identity
-- **App icon (1.8.3)**: Inter Display ExtraBold "m:", cream "m" + coral round colon on deep ink-green,
-  built from real glyph outlines by `docs/icon/make.py`. Owner likes the Inter "m", wanted it bolder, and
-  prefers these original colours.
+- **App icon palette (1.10.1)**: owner-supplied, final: tile `#1C1C1E`, cream `#EEE7DC`, accent `#E2957A`.
+  Don't change colours unless he asks.
+- **App icon mark (1.8.3)**: Inter Display ExtraBold "m:" with a round colon, built from real glyph outlines by
+  `docs/icon/make.py`. Owner likes the Inter "m" and wanted it bolder.
   - 1.8.2 (Inter SemiBold, Material You tonal sage/peach on green): liked the "m", not the colours.
   - 1.8.1 (Fragment Mono "m" + square colon): rejected; owner disliked it, especially the square colon.
   - 1.8.0 (custom rounded-stroke "m:", ink background): felt like the Meesho logo. Avoid bubbly letterforms.
@@ -36,6 +37,11 @@ Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
 - **Checkmarks**: removed from segments in 1.4.3 for uniformity, restored for all of them in 1.6.0 (stock Material).
 
 ## Fonts
+- **Font browser (1.10.0)**: with ~1,960 families, the chip row made exploring hard. "Browse all fonts" opens
+  a full-height sheet (popularity order, search, category chips) with each row previewing "12:45" from a tiny
+  `text=` subset. The chip row stays for quick picks.
+- **App font (1.9.0)**: the owner wanted to choose Minutia's own UI font (not just the widget's). Same
+  `FontEditor` without the weight slider; three weights are downloaded so headings stay bold. Default = system.
 - **Curated chips are fixed** (owner request, 1.4.1): never reordered or replaced; Fragment Mono is 3rd.
   **Recents go first, newest first** (1.4.2), up to 50.
 - **Custom date font (1.3.0)**: Default / Clock / Custom, with the same picker as the clock.

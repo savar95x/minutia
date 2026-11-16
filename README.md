@@ -45,4 +45,4 @@ Every push to `main` builds a signed APK with GitHub Actions (`.github/workflows
 To release, bump `VERSION_NAME` in `version.properties` and add a matching section to `CHANGELOG.md`; CI then publishes `vX.Y.Z` on Releases.
 Locally: `gradle :app:assembleRelease` with the Android SDK installed.
 
-**Working on this with an AI agent?** Point it at [CLAUDE.md](CLAUDE.md) (also linked from `AGENTS.md` / `GEMINI.md`): build loop, architecture, conventions and gotchas. Design history is in [docs/DECISIONS.md](docs/DECISIONS.md).
+**Working on this with an AI agent?** Point it at [CLAUDE.md](CLAUDE.md) (also linked from `AGENTS.md` / `GEMINI.md`): build loop, architecture, conventions and gotchas. How-tos in [docs/RECIPES.md](docs/RECIPES.md), design history in [docs/DECISIONS.md](docs/DECISIONS.md).

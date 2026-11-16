@@ -4,8 +4,15 @@ Native Android home-screen **clock widget** with a Jetpack Compose settings app.
 `dev.savar.minutia`, minSdk 29 · targetSdk 34 · compileSdk 37. Owner: Savar Verma (GitHub `savar95x`),
 daily driver **OnePlus 13s, OxygenOS 16**. Public repo: https://github.com/savar95x/minutia
 
-Read this file first. Design history and rejected ideas: [`docs/DECISIONS.md`](docs/DECISIONS.md).
-User-facing changes per version: [`CHANGELOG.md`](CHANGELOG.md).
+Read this file first. Then, as needed:
+| Doc | For |
+|---|---|
+| [`docs/RECIPES.md`](docs/RECIPES.md) | Step-by-step: add a setting/style, change fonts or the icon, upgrade deps, ship, handle feedback |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design history and **rejected ideas** (check before proposing UI changes) |
+| [`CHANGELOG.md`](CHANGELOG.md) | User-facing changes per version; top entry = current version |
+| [`docs/icon/DESIGN.md`](docs/icon/DESIGN.md) | App icon spec |
+| [`scripts/README.md`](scripts/README.md) | Helper scripts and first-time setup (`pip install -r scripts/requirements.txt`, `gh auth status`) |
+| `.claude/skills/` | `ship` (release checklist) and `owner-feedback` (screenshots/recordings) skills |
 
 ---
 
@@ -123,4 +130,5 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
 - Old releases `build-1`…`build-6` (pre-semver) are still on GitHub. `build-1`'s tag points at a commit that
   contains the owner's personal email. The owner should delete them (the agent connection couldn't).
 - No automated tests and no emulator in the loop; verification = CI build + APK inspection + owner's device.
+- Docs-only pushes skip CI, so a doc fix never needs a version bump.
 - `targetSdk` is still 34. Bumping it would need a behaviour review (edge-to-edge is already on).
