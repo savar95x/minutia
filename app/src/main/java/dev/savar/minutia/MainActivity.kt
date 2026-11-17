@@ -11,6 +11,46 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.BatteryAlert
+import androidx.compose.material.icons.rounded.BatteryFull
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Contrast
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.FontDownload
+import androidx.compose.material.icons.rounded.Gradient
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Typography
@@ -53,7 +93,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -65,7 +104,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -138,9 +176,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -206,9 +242,12 @@ private fun AppTheme(content: @Composable () -> Unit) {
     }
     ThemePrefs.load(ctx)
     // Pure black (AMOLED): only the page goes black; section cards keep their tonal containers.
-    val scheme = if (dark && ThemePrefs.pureBlack) {
-        base.copy(background = Color.Black, surface = Color.Black, surfaceDim = Color.Black, surfaceContainerLowest = Color.Black)
-    } else base
+    val scheme = if (dark && ThemePrefs.pureBlack) base.pureBlack() else base
+    val activity = ctx as? android.app.Activity
+    SideEffect {
+        // Window behind Compose (shown while launching and during transitions) matches the page.
+        activity?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(scheme.background.toArgb()))
+    }
     AppFont.load(ctx)
     val spec = AppFont.spec
     val version = AppFont.version
@@ -217,6 +256,28 @@ private fun AppTheme(content: @Composable () -> Unit) {
         else Typography().withFamily(AppFont.family(ctx))
     }
     MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+}
+
+/**
+ * AMOLED variant of a dark scheme. Like most pure-black themes, the page is #000 and every tonal
+ * surface is pulled most of the way to black (keeping its wallpaper tint), so cards, sheets, menus,
+ * dialogs and the scrolled app bar stay distinguishable but none of them glow grey.
+ */
+private fun ColorScheme.pureBlack(): ColorScheme {
+    fun dim(c: Color, keep: Float) = lerp(Color.Black, c, keep)
+    return copy(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceDim = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = dim(surfaceContainerLow, 0.45f),
+        surfaceContainer = dim(surfaceContainer, 0.55f),
+        surfaceContainerHigh = dim(surfaceContainerHigh, 0.62f),
+        surfaceContainerHighest = dim(surfaceContainerHighest, 0.7f),
+        surfaceBright = dim(surfaceBright, 0.7f),
+        surfaceVariant = dim(surfaceVariant, 0.7f),
+        inverseOnSurface = Color.Black,
+    )
 }
 
 /** App-wide theme preferences (prefs `ui`), observable so the theme updates immediately. */
@@ -239,20 +300,6 @@ object ThemePrefs {
 }
 
 const val SOURCE_URL = "https://github.com/savar95x/minutia"
-
-/** 24dp filled icon from Material Symbols path data (material-icons-core lacks these). */
-private fun symbol(name: String, path: String) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
-    .addPath(addPathNodes(path), fill = SolidColor(Color.Black))
-    .build()
-
-private val ContrastIcon = symbol(
-    "Contrast",
-    "M12,22c5.52,0 10,-4.48 10,-10S17.52,2 12,2 2,6.48 2,12s4.48,10 10,10zM13,4.07c3.94,0.49 7,3.85 7,7.93s-3.06,7.44 -7,7.93L13,4.07z",
-)
-private val CodeIcon = symbol(
-    "Code",
-    "M9.4,16.6L4.8,12l4.6,-4.6L8,6l-6,6 6,6 1.4,-1.4zM14.6,16.6l4.6,-4.6 -4.6,-4.6L16,6l6,6 -6,6 -1.4,-1.4z",
-)
 
 private val SWATCHES = listOf(
     0xFFFFFFFF, 0xFFFFF4E0, 0xFFFFB59E, 0xFFFF7A59, 0xFFFF8FAB, 0xFFC9B6FF, 0xFF9AD0FF,
@@ -328,459 +375,478 @@ private fun SettingsScreen(launchId: Int) {
     var resetCount by remember { mutableIntStateOf(0) }
     val haptics = LocalHapticFeedback.current
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var menuOpen by remember { mutableStateOf(false) }
     val systemDark = isSystemInDarkTheme()
     var confirmReset by remember { mutableStateOf(false) }
     val version = remember {
         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
     }
-    val settingsScroll = rememberScrollState()
     val scheme = MaterialTheme.colorScheme
     val size = remember(selectedId, widgetIds) { WidgetUpdater.size(ctx, selectedId) }
-    // App preference (not per widget): pinned preview stays at the top like a widget editor;
-    // otherwise it's the first item of the page and scrolls away like Wallpaper & style.
+    // App preference (not per widget): on the home page a pinned preview stays at the top like a widget
+    // editor; otherwise it scrolls away like Wallpaper & style. Sub-pages always pin it.
     val uiPrefs = remember { ctx.getSharedPreferences("ui", Context.MODE_PRIVATE) }
     var showAppFont by remember { mutableStateOf(false) }
     var pinPreview by remember { mutableStateOf(uiPrefs.getBoolean("pin_preview", false)) }
-    val previewCard: @Composable (Modifier) -> Unit = { mod ->
-        PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, mod)
-    }
+    val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = { Text("Minutia") },
-                actions = {
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More")
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("App font…") },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = { menuOpen = false; showAppFont = true },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Pin preview") },
-                                leadingIcon = { Icon(Icons.Default.Place, contentDescription = null) },
-                                trailingIcon = { Checkbox(checked = pinPreview, onCheckedChange = null) },
-                                onClick = {
-                                    pinPreview = !pinPreview
-                                    uiPrefs.edit().putBoolean("pin_preview", pinPreview).apply()
-                                    menuOpen = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Pure black") },
-                                leadingIcon = { Icon(ContrastIcon, contentDescription = null) },
-                                trailingIcon = { Checkbox(checked = ThemePrefs.pureBlack, onCheckedChange = null) },
-                                onClick = { ThemePrefs.setPureBlack(ctx, !ThemePrefs.pureBlack); menuOpen = false },
-                                enabled = systemDark,
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Reset widget…") },
-                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
-                                onClick = { menuOpen = false; confirmReset = true },
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Source code") },
-                                leadingIcon = { Icon(CodeIcon, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    runCatching {
-                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                    }
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Version $version") },
-                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                                onClick = {},
-                                enabled = false,
-                            )
-                        }
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                // With a pinned preview nothing scrolls under the bar, so it shouldn't tint.
-                colors = if (pinPreview) {
-                    TopAppBarDefaults.topAppBarColors(scrolledContainerColor = MaterialTheme.colorScheme.surface)
-                } else {
-                    TopAppBarDefaults.topAppBarColors()
-                },
-            )
+    var page by rememberSaveable { mutableStateOf<Page?>(null) }
+    BackHandler(enabled = page != null) { page = null }
+
+    AnimatedContent(
+        targetState = page,
+        transitionSpec = {
+            // Material shared-axis X: forward slides in from the right, back from the left.
+            val forward = targetState != null
+            val dir = if (forward) 1 else -1
+            (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> dir * w / 6 } + fadeIn(tween(220, delayMillis = 60)))
+                .togetherWith(slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> -dir * w / 6 } + fadeOut(tween(120)))
         },
-    ) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
-            if (pinPreview) {
-                previewCard(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp))
-            }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(settingsScroll)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // ---------- live preview ----------
-                if (!pinPreview) previewCard(Modifier.padding(top = 4.dp))
-
-                // ---------- which widget ----------
-                val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
-                if (widgetIds.isEmpty()) {
-                    Section("Get started") {
-                        if (pinSupported) {
-                            Button(onClick = {
-                                AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
-                            }) { Text("Add to home screen") }
-                        } else {
-                            Text("Long-press home screen → Widgets → Minutia", style = MaterialTheme.typography.bodyMedium)
+        label = "page",
+    ) { shown ->
+        val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+        val pinned = shown != null || pinPreview
+        Scaffold(
+            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                LargeTopAppBar(
+                    title = { Text(shown?.title ?: "Minutia") },
+                    navigationIcon = {
+                        if (shown != null) {
+                            IconButton(onClick = { page = null }) {
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                            }
                         }
-                    }
-                } else if (widgetIds.size > 1 || pinSupported) {
-                    Section("Editing") {
-                        ChipFlow {
-                            widgetIds.forEachIndexed { i, id ->
-                                Chip(
-                                    selected = id == selectedId,
-                                    onClick = { selectedId = id },
-                                    label = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("Widget ${i + 1}")
-                                            Spacer(Modifier.width(6.dp))
+                    },
+                    actions = {
+                        if (shown == null) Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "More")
+                            }
+                            DropdownMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false },
+                                shape = MaterialTheme.shapes.large,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("App font") },
+                                    leadingIcon = { Icon(Icons.Rounded.FontDownload, contentDescription = null) },
+                                    onClick = { menuOpen = false; showAppFont = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Pin preview") },
+                                    leadingIcon = { Icon(Icons.Rounded.PushPin, contentDescription = null) },
+                                    trailingIcon = { Checkbox(checked = pinPreview, onCheckedChange = null) },
+                                    onClick = {
+                                        pinPreview = !pinPreview
+                                        uiPrefs.edit().putBoolean("pin_preview", pinPreview).apply()
+                                        menuOpen = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Pure black") },
+                                    leadingIcon = { Icon(Icons.Rounded.Contrast, contentDescription = null) },
+                                    trailingIcon = { Checkbox(checked = ThemePrefs.pureBlack, onCheckedChange = null) },
+                                    onClick = { ThemePrefs.setPureBlack(ctx, !ThemePrefs.pureBlack); menuOpen = false },
+                                    enabled = systemDark,
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Reset widget") },
+                                    leadingIcon = { Icon(Icons.Rounded.RestartAlt, contentDescription = null) },
+                                    onClick = { menuOpen = false; confirmReset = true },
+                                )
+                                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("Source code")
                                             Text(
-                                                widgetLabel(ctx, id, i),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                "Version $version",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = scheme.onSurfaceVariant,
                                             )
                                         }
                                     },
-                                )
-                            }
-                            if (pinSupported) {
-                                TextButton(onClick = {
-                                    AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
-                                }) { Text("+ Add") }
-                            }
-                        }
-                        if (pinSupported && selectedId >= 0) {
-                            val labeled = remember(selectedId, widgetIds) { WidgetUpdater.isLabeled(ctx, selectedId) }
-                            SwitchRow("Show name", labeled) { want ->
-                                // A widget's name is fixed when it's placed, so swap in the other variant.
-                                ConfigStore.save(ctx, selectedId, cfg)
-                                val target = if (want) WidgetUpdater.labeledComponent(ctx) else WidgetUpdater.component(ctx)
-                                AppWidgetManager.getInstance(ctx).requestPinAppWidget(target, null, null)
-                                nameHint = true
-                            }
-                            Reveal(nameHint) {
-                                Text(
-                                    "Place the new one, then remove the old.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = scheme.onSurfaceVariant,
+                                    leadingIcon = { Icon(Icons.Rounded.Code, contentDescription = null) },
+                                    trailingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, Modifier.size(18.dp)) },
+                                    onClick = { menuOpen = false; openUrl(ctx, SOURCE_URL) },
                                 )
                             }
                         }
-                    }
-                }
-
-                // ---------- style ----------
-                Section("Style") {
-                    // Plain horizontal list (the Material carousel jittered at its ends). Cards are
-                    // 132dp so the next one is always cut off at the edge, hinting there are more.
-                    val styles = remember { ClockStyle.entries.toList() }
-                    val rowState = rememberLazyListState(
-                        initialFirstVisibleItemIndex = (styles.indexOf(cfg.style) - 1).coerceAtLeast(0),
-                    )
-                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(styles) { style ->
-                            val thumb = remember(cfg, style, minuteTick, fontVersion) {
-                                val d = ctx.resources.displayMetrics.density
-                                ClockRenderer.render(
-                                    ctx, cfg.copy(style = style, sizePercent = 100),
-                                    (132 * d).toInt(), (84 * d).toInt(), d * 0.6f,
-                                ).asImageBitmap()
-                            }
-                            val selected = style == cfg.style
-                            val outline by animateColorAsState(
-                                if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline",
-                            )
-                            val labelColor by animateColorAsState(
-                                if (selected) scheme.primary else scheme.onSurfaceVariant, tween(250), label = "cardLabel",
-                            )
-                            Column(
-                                Modifier
-                                    .width(132.dp)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .clickable {
-                                        if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        update(cfg.copy(style = style))
-                                    },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(84.dp)
-                                        .clip(MaterialTheme.shapes.large)
-                                        .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
-                                        .border(BorderStroke(3.dp, outline), MaterialTheme.shapes.large),
-                                ) {
-                                    Image(thumb, style.label, Modifier.fillMaxSize().padding(6.dp), contentScale = ContentScale.Fit)
-                                }
-                                Text(
-                                    style.label,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = labelColor,
-                                    maxLines = 1,
-                                    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ---------- fonts ----------
-                val hasDateLine = cfg.showDate || (!cfg.use24h && cfg.showAmPm && cfg.style != ClockStyle.ANALOG)
-                if (cfg.style != ClockStyle.ANALOG || hasDateLine) {
-                    Section("Font") {
-                        if (cfg.style != ClockStyle.ANALOG) {
-                            FontEditor(
-                                spec = cfg.clockFont,
-                                resetKey = Triple(selectedId, resetCount, "clock"),
-                                catalogueVersion = catalogueVersion,
-                                recentKey = fontVersion,
-                                onPreview = { setLocal(cfg.withClockFont(it)) },
-                                onApply = { update(cfg.withClockFont(it)) },
-                                onFontLoaded = { fontVersion++ },
-                            )
-                        }
-                        if (hasDateLine) {
-                            if (cfg.style != ClockStyle.ANALOG) {
-                                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = scheme.outlineVariant)
-                            }
-                            Text("Date font", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-                            val modes = DateFontMode.entries.filter {
-                                it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
-                            }
-                            Segmented(modes, cfg.dateFontMode, { it.label }) { update(cfg.copy(dateFontMode = it)) }
-                            Reveal(cfg.dateFontMode == DateFontMode.CUSTOM) {
-                                Spacer(Modifier.height(14.dp))
-                                FontEditor(
-                                    spec = cfg.dateFont,
-                                    resetKey = Triple(selectedId, resetCount, "date"),
-                                    catalogueVersion = catalogueVersion,
-                                    recentKey = fontVersion,
-                                    onPreview = { setLocal(cfg.withDateFont(it)) },
-                                    onApply = { update(cfg.withDateFont(it)) },
-                                    onFontLoaded = { fontVersion++ },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ---------- colours ----------
-                Section("Colours") {
-                    val canDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    SwitchRow("Wallpaper colours", cfg.useWallpaperColors && canDynamic, enabled = canDynamic) {
-                        update(cfg.copy(useWallpaperColors = it))
-                    }
-                    Reveal(!cfg.useWallpaperColors || !canDynamic) {
-                        ColorPicker("Main", cfg.primaryColor) { update(cfg.copy(primaryColor = it)) }
-                        ColorPicker("Accent", cfg.accentColor) { update(cfg.copy(accentColor = it)) }
-                    }
-                    SwitchRow("Shadow", cfg.shadow) { update(cfg.copy(shadow = it)) }
-                }
-
-                // ---------- time & date ----------
-                Section("Time & date") {
-                    SwitchRow("24-hour time", cfg.use24h) { update(cfg.copy(use24h = it)) }
-                    SwitchRow("Leading zero", cfg.leadingZero) { update(cfg.copy(leadingZero = it)) }
-                    Reveal(!cfg.use24h) { SwitchRow("AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) } }
-                    Reveal(cfg.style == ClockStyle.WORDS) {
-                        SwitchRow("Lowercase", cfg.lowercaseWords) { update(cfg.copy(lowercaseWords = it)) }
-                    }
-                    SwitchRow("Date", cfg.showDate) { update(cfg.copy(showDate = it)) }
-                    Reveal(cfg.showDate) {
-                        val now = remember(minuteTick) { Date() }
-                        val isPreset = cfg.dateFormat in DateFormats.PRESETS
-                        var customOpen by remember(selectedId, resetCount) { mutableStateOf(!isPreset) }
-                        var customText by remember(selectedId, resetCount) { mutableStateOf(if (isPreset) "" else cfg.dateFormat) }
-                        ChipFlow {
-                            DateFormats.PRESETS.forEach { f ->
-                                val sample = remember(f, now) { SimpleDateFormat(f, Locale.getDefault()).format(now) }
-                                Chip(
-                                    selected = !customOpen && cfg.dateFormat == f,
-                                    onClick = { customOpen = false; update(cfg.copy(dateFormat = f)) },
-                                    label = { Text(sample) },
-                                )
-                            }
-                            Chip(
-                                selected = customOpen,
-                                onClick = {
-                                    customOpen = true
-                                    if (customText.isBlank()) customText = cfg.dateFormat
-                                },
-                                label = { Text("Custom…") },
-                            )
-                        }
-                        Reveal(customOpen) {
-                            val fmt = remember(customText) { DateFormats.formatter(customText) }
-                            val shows = remember(fmt, now) { fmt?.format(now) }
-                            Spacer(Modifier.height(10.dp))
-                            OutlinedTextField(
-                                value = customText,
-                                onValueChange = {
-                                    customText = it
-                                    if (DateFormats.formatter(it) != null) update(cfg.copy(dateFormat = it))
-                                },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                placeholder = { Text("EEE, d MMM  ·  %a %d %b") },
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                                isError = customText.isNotBlank() && fmt == null,
-                                supportingText = {
-                                    Text(
-                                        when {
-                                            customText.isBlank() -> ""
-                                            fmt == null -> "Unknown code"
-                                            else -> "$shows"
-                                        },
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            val cheats = remember(now) {
-                                DateFormats.CHEATSHEET.joinToString("  ") { code ->
-                                    "$code ${SimpleDateFormat(code, Locale.getDefault()).format(now)}"
-                                }
-                            }
-                            Text(
-                                cheats,
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                color = scheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                            Row {
-                                TextButton(
-                                    onClick = { openUrl(ctx, DateFormats.PATTERN_GUIDE_URL) },
-                                    contentPadding = PaddingValues(horizontal = 0.dp),
-                                ) { Text("Codes") }
-                                Spacer(Modifier.width(20.dp))
-                                TextButton(
-                                    onClick = { openUrl(ctx, DateFormats.STRFTIME_GUIDE_URL) },
-                                    contentPadding = PaddingValues(horizontal = 0.dp),
-                                ) { Text("% codes") }
-                            }
-                        }
-                        SwitchRow("All caps", cfg.uppercaseDate) { update(cfg.copy(uppercaseDate = it)) }
-                    }
-                }
-
-                // ---------- layout ----------
-                Section("Layout") {
-                    LabeledSlider("Size", cfg.sizePercent, 20..100, 0, "${cfg.sizePercent}%",
-                        onChange = { setLocal(cfg.copy(sizePercent = it)) }, onDone = { commit() })
-                    if (cfg.style != ClockStyle.ANALOG) {
-                        LabeledSlider("Spacing", cfg.letterSpacing, -12..24, 0, "${cfg.letterSpacing}",
-                            onChange = { setLocal(cfg.copy(letterSpacing = it)) }, onDone = { commit() })
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Segmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
-                    Spacer(Modifier.height(6.dp))
-                    SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled face" else "Background", cfg.background) {
-                        update(cfg.copy(background = it))
-                    }
-                    Reveal(cfg.background) {
-                        if (!cfg.useWallpaperColors || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                            ColorPicker("Colour", cfg.bgColor) { update(cfg.copy(bgColor = it)) }
-                        }
-                        LabeledSlider("Opacity", cfg.bgOpacity, 0..100, 0, "${cfg.bgOpacity}%",
-                            onChange = { setLocal(cfg.copy(bgOpacity = it)) }, onDone = { commit() })
-                        if (cfg.style != ClockStyle.ANALOG) {
-                            LabeledSlider("Corners", cfg.cornerRadius, 0..48, 0, "${cfg.cornerRadius}dp",
-                                onChange = { setLocal(cfg.copy(cornerRadius = it)) }, onDone = { commit() })
-                        }
-                    }
-                }
-
-                // ---------- tap ----------
-                Section("On tap") {
-                    ChipFlow {
-                        TapAction.entries.forEach { a ->
-                            Chip(
-                                selected = cfg.tapAction == a,
-                                onClick = {
-                                    if (a == TapAction.APP) showAppPicker = true else update(cfg.copy(tapAction = a))
-                                },
-                                label = { Text(a.label) },
-                            )
-                        }
-                    }
-                    if (cfg.tapAction == TapAction.APP && cfg.tapPackage.isNotEmpty()) {
-                        val appName = remember(cfg.tapPackage) { appLabel(ctx, cfg.tapPackage) }
-                        Text(
-                            "→ $appName",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = scheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
-                if (showAppPicker) {
-                    AppPickerDialog(
-                        onDismiss = { showAppPicker = false },
-                        onPick = { pkg ->
-                            showAppPicker = false
-                            update(cfg.copy(tapAction = TapAction.APP, tapPackage = pkg))
-                        },
+                    },
+                    scrollBehavior = scrollBehavior,
+                    // With a pinned preview nothing scrolls under the bar, so it shouldn't tint.
+                    colors = if (pinned) {
+                        TopAppBarDefaults.topAppBarColors(scrolledContainerColor = scheme.surface)
+                    } else {
+                        TopAppBarDefaults.topAppBarColors()
+                    },
+                )
+            },
+        ) { innerPadding ->
+            Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
+                if (pinned) {
+                    PreviewCard(
+                        cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview },
+                        Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                        height = if (shown != null) 168.dp else 200.dp,
                     )
                 }
-
-                // ---------- reliability ----------
-                Section("Battery", padded = false) {
-                    val ok = ignoringBattery
-                    ListItem(
-                        leadingContent = {
-                            Box(
-                                Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(if (ok) scheme.primaryContainer else scheme.errorContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    if (ok) Icons.Default.CheckCircle else Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = if (ok) scheme.onPrimaryContainer else scheme.onErrorContainer,
-                                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    when (shown) {
+                        null -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                if (!pinned) {
+                                    PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, Modifier.padding(top = 4.dp))
+                                }
+                                // ---------- which widget ----------
+                                if (widgetIds.isNotEmpty() && (widgetIds.size > 1 || pinSupported)) {
+                                    ChipFlow {
+                                        widgetIds.forEachIndexed { i, id ->
+                                            Chip(
+                                                selected = id == selectedId,
+                                                onClick = { selectedId = id },
+                                                label = {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text("Widget ${i + 1}")
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Text(
+                                                            widgetLabel(ctx, id, i),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = scheme.onSurfaceVariant,
+                                                        )
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        if (pinSupported) {
+                                            AssistChip(
+                                                onClick = {
+                                                    AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
+                                                },
+                                                label = { Text("Add") },
+                                                leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                        },
-                        headlineContent = { Text(if (ok) "Unrestricted" else "Restricted") },
-                        supportingContent = { Text(if (ok) "Updates on time" else "Clock may lag") },
-                        trailingContent = if (ok) null else {
-                            {
-                                FilledTonalButton(onClick = {
-                                    runCatching {
-                                        ctx.startActivity(
-                                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            if (widgetIds.isEmpty()) {
+                                Group {
+                                    item {
+                                        ListItem(
+                                            leadingContent = { RowIcon(Icons.Rounded.Widgets) },
+                                            headlineContent = { Text("No widget yet") },
+                                            supportingContent = {
+                                                Text(if (pinSupported) "Add one to your home screen" else "Long-press home screen → Widgets")
+                                            },
+                                            trailingContent = if (pinSupported) {
+                                                {
+                                                    FilledTonalButton(onClick = {
+                                                        AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
+                                                    }) { Text("Add") }
+                                                }
+                                            } else null,
+                                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                         )
                                     }
-                                }) { Text("Fix") }
+                                }
                             }
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    )
-                }
+                            Group {
+                                item { NavRow(Icons.Rounded.Widgets, "Style", cfg.style.label) { page = Page.STYLE } }
+                                item { NavRow(Icons.Rounded.TextFields, "Font", fontName(cfg)) { page = Page.FONT } }
+                                item {
+                                    NavRow(
+                                        Icons.Rounded.Palette, "Colours",
+                                        if (cfg.useWallpaperColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) "Wallpaper" else "Custom",
+                                    ) { page = Page.COLOURS }
+                                }
+                            }
+                            Group {
+                                item {
+                                    val summary = remember(cfg, minuteTick) {
+                                        val t = if (cfg.use24h) "24-hour" else "12-hour"
+                                        if (cfg.showDate) "$t · ${DateFormats.formatter(cfg.dateFormat)?.format(Date()) ?: ""}" else t
+                                    }
+                                    NavRow(Icons.Rounded.Schedule, "Time & date", summary) { page = Page.TIME }
+                                }
+                                item {
+                                    NavRow(Icons.Rounded.AspectRatio, "Layout", "${cfg.sizePercent}% · ${cfg.align.label}") { page = Page.LAYOUT }
+                                }
+                                item {
+                                    val tap = when {
+                                        cfg.tapAction == TapAction.APP && cfg.tapPackage.isNotEmpty() -> remember(cfg.tapPackage) { appLabel(ctx, cfg.tapPackage) }
+                                        cfg.tapAction == TapAction.NONE -> "Nothing"
+                                        else -> "Open ${cfg.tapAction.label.lowercase().removeSuffix("…")}"
+                                    }
+                                    NavRow(Icons.Rounded.TouchApp, "On tap", tap) { page = Page.TAP }
+                                }
+                            }
+                            // ---------- reliability ----------
+                            Group {
+                                item {
+                                    val ok = ignoringBattery
+                                    ListItem(
+                                        modifier = Modifier.clickable {
+                                            runCatching {
+                                                val i = if (ok) {
+                                                    // OxygenOS keeps auto-launch / background activity on the app info page.
+                                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                                                } else {
+                                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
+                                                }
+                                                ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                            }
+                                        },
+                                        leadingContent = {
+                                            RowIcon(
+                                                if (ok) Icons.Rounded.BatteryFull else Icons.Rounded.BatteryAlert,
+                                                container = if (ok) scheme.primaryContainer else scheme.errorContainer,
+                                                tint = if (ok) scheme.onPrimaryContainer else scheme.onErrorContainer,
+                                            )
+                                        },
+                                        headlineContent = { Text("Battery") },
+                                        supportingContent = { Text(if (ok) "Unrestricted · updates on time" else "Restricted · clock may lag") },
+                                        trailingContent = if (ok) null else {
+                                            { FilledTonalButton(onClick = {
+                                                runCatching {
+                                                    ctx.startActivity(
+                                                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
+                                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                                    )
+                                                }
+                                            }) { Text("Fix") } }
+                                        },
+                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                    )
+                                }
+                            }
+                        }
 
-                Spacer(Modifier.height(24.dp))
+                        // ---------- style ----------
+                        Page.STYLE -> {
+                            val styles = remember { ClockStyle.entries.toList() }
+                            styles.chunked(2).forEach { pair ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    pair.forEach { style ->
+                                        StyleCard(style, cfg, style == cfg.style, minuteTick, fontVersion, Modifier.weight(1f)) {
+                                            if (style != cfg.style) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            update(cfg.copy(style = style))
+                                        }
+                                    }
+                                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        // ---------- fonts ----------
+                        Page.FONT -> {
+                            val hasDateLine = cfg.showDate || (!cfg.use24h && cfg.showAmPm && cfg.style != ClockStyle.ANALOG)
+                            if (cfg.style != ClockStyle.ANALOG) {
+                                Group("Clock") {
+                                    item {
+                                        Pad {
+                                            FontEditor(
+                                                spec = cfg.clockFont,
+                                                resetKey = Triple(selectedId, resetCount, "clock"),
+                                                catalogueVersion = catalogueVersion,
+                                                recentKey = fontVersion,
+                                                onPreview = { setLocal(cfg.withClockFont(it)) },
+                                                onApply = { update(cfg.withClockFont(it)) },
+                                                onFontLoaded = { fontVersion++ },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            if (hasDateLine) {
+                                Group("Date") {
+                                    item {
+                                        Pad {
+                                            val modes = DateFontMode.entries.filter {
+                                                it != DateFontMode.CLOCK || cfg.style != ClockStyle.ANALOG
+                                            }
+                                            Segmented(modes, cfg.dateFontMode, { it.label }) { update(cfg.copy(dateFontMode = it)) }
+                                        }
+                                    }
+                                    if (cfg.dateFontMode == DateFontMode.CUSTOM) item {
+                                        Pad {
+                                            FontEditor(
+                                                spec = cfg.dateFont,
+                                                resetKey = Triple(selectedId, resetCount, "date"),
+                                                catalogueVersion = catalogueVersion,
+                                                recentKey = fontVersion,
+                                                onPreview = { setLocal(cfg.withDateFont(it)) },
+                                                onApply = { update(cfg.withDateFont(it)) },
+                                                onFontLoaded = { fontVersion++ },
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (cfg.style == ClockStyle.ANALOG) {
+                                Text(
+                                    "The analog face has no text. Turn on the date to pick its font.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = scheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                )
+                            }
+                        }
+
+                        // ---------- colours ----------
+                        Page.COLOURS -> {
+                            val canDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            Group {
+                                item {
+                                    SwitchRow("Wallpaper colours", cfg.useWallpaperColors && canDynamic, enabled = canDynamic, icon = Icons.Rounded.Wallpaper) {
+                                        update(cfg.copy(useWallpaperColors = it))
+                                    }
+                                }
+                                if (!cfg.useWallpaperColors || !canDynamic) {
+                                    item { Pad { ColorPicker("Main", cfg.primaryColor) { update(cfg.copy(primaryColor = it)) } } }
+                                    item { Pad { ColorPicker("Accent", cfg.accentColor) { update(cfg.copy(accentColor = it)) } } }
+                                }
+                            }
+                            Group {
+                                item { SwitchRow("Shadow", cfg.shadow, icon = Icons.Rounded.Gradient) { update(cfg.copy(shadow = it)) } }
+                            }
+                        }
+
+                        // ---------- time & date ----------
+                        Page.TIME -> {
+                            Group("Time") {
+                                item { SwitchRow("24-hour time", cfg.use24h) { update(cfg.copy(use24h = it)) } }
+                                item { SwitchRow("Leading zero", cfg.leadingZero) { update(cfg.copy(leadingZero = it)) } }
+                                if (!cfg.use24h) item { SwitchRow("AM / PM", cfg.showAmPm) { update(cfg.copy(showAmPm = it)) } }
+                                if (cfg.style == ClockStyle.WORDS) {
+                                    item { SwitchRow("Lowercase", cfg.lowercaseWords) { update(cfg.copy(lowercaseWords = it)) } }
+                                }
+                            }
+                            Group("Date") {
+                                item { SwitchRow("Show date", cfg.showDate) { update(cfg.copy(showDate = it)) } }
+                                if (cfg.showDate) {
+                                    item { Pad { DateFormatPicker(cfg, selectedId, resetCount, minuteTick) { update(cfg.copy(dateFormat = it)) } } }
+                                    item { SwitchRow("All caps", cfg.uppercaseDate) { update(cfg.copy(uppercaseDate = it)) } }
+                                }
+                            }
+                        }
+
+                        // ---------- layout ----------
+                        Page.LAYOUT -> {
+                            Group("Clock") {
+                                item {
+                                    Pad {
+                                        LabeledSlider("Size", cfg.sizePercent, 20..100, 0, "${cfg.sizePercent}%",
+                                            onChange = { setLocal(cfg.copy(sizePercent = it)) }, onDone = { commit() })
+                                    }
+                                }
+                                if (cfg.style != ClockStyle.ANALOG) item {
+                                    Pad {
+                                        LabeledSlider("Spacing", cfg.letterSpacing, -12..24, 0, "${cfg.letterSpacing}",
+                                            onChange = { setLocal(cfg.copy(letterSpacing = it)) }, onDone = { commit() })
+                                    }
+                                }
+                                item {
+                                    Pad {
+                                        Text("Alignment", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 10.dp))
+                                        Segmented(HAlign.entries, cfg.align, { it.label }) { update(cfg.copy(align = it)) }
+                                    }
+                                }
+                            }
+                            Group("Background") {
+                                item {
+                                    SwitchRow(if (cfg.style == ClockStyle.ANALOG) "Filled face" else "Background", cfg.background) {
+                                        update(cfg.copy(background = it))
+                                    }
+                                }
+                                if (cfg.background) {
+                                    if (!cfg.useWallpaperColors || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                                        item { Pad { ColorPicker("Colour", cfg.bgColor) { update(cfg.copy(bgColor = it)) } } }
+                                    }
+                                    item {
+                                        Pad {
+                                            LabeledSlider("Opacity", cfg.bgOpacity, 0..100, 0, "${cfg.bgOpacity}%",
+                                                onChange = { setLocal(cfg.copy(bgOpacity = it)) }, onDone = { commit() })
+                                        }
+                                    }
+                                    if (cfg.style != ClockStyle.ANALOG) item {
+                                        Pad {
+                                            LabeledSlider("Corners", cfg.cornerRadius, 0..48, 0, "${cfg.cornerRadius}dp",
+                                                onChange = { setLocal(cfg.copy(cornerRadius = it)) }, onDone = { commit() })
+                                        }
+                                    }
+                                }
+                            }
+                            if (pinSupported && selectedId >= 0) {
+                                Group("Home screen") {
+                                    item {
+                                        val labeled = remember(selectedId, widgetIds) { WidgetUpdater.isLabeled(ctx, selectedId) }
+                                        SwitchRow("Show name", labeled, summary = if (nameHint) "Place the new one, then remove the old" else null) { want ->
+                                            // A widget's name is fixed when it's placed, so swap in the other variant.
+                                            ConfigStore.save(ctx, selectedId, cfg)
+                                            val target = if (want) WidgetUpdater.labeledComponent(ctx) else WidgetUpdater.component(ctx)
+                                            AppWidgetManager.getInstance(ctx).requestPinAppWidget(target, null, null)
+                                            nameHint = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ---------- tap ----------
+                        Page.TAP -> {
+                            Group {
+                                TapAction.entries.forEach { a ->
+                                    item {
+                                        val selected = cfg.tapAction == a
+                                        ListItem(
+                                            modifier = Modifier.selectable(selected = selected, role = Role.RadioButton) {
+                                                if (a == TapAction.APP) showAppPicker = true else update(cfg.copy(tapAction = a))
+                                            },
+                                            leadingContent = { RadioButton(selected = selected, onClick = null) },
+                                            headlineContent = {
+                                                Text(
+                                                    when (a) {
+                                                        TapAction.CLOCK -> "Open clock"
+                                                        TapAction.APP -> "Open an app"
+                                                        TapAction.SETTINGS -> "Open Minutia"
+                                                        TapAction.NONE -> "Do nothing"
+                                                    },
+                                                )
+                                            },
+                                            supportingContent = if (a == TapAction.APP && cfg.tapPackage.isNotEmpty()) {
+                                                { Text(remember(cfg.tapPackage) { appLabel(ctx, cfg.tapPackage) }) }
+                                            } else null,
+                                            trailingContent = if (a == TapAction.APP) {
+                                                { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null) }
+                                            } else null,
+                                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    if (showAppPicker) {
+        AppPickerDialog(
+            onDismiss = { showAppPicker = false },
+            onPick = { pkg ->
+                showAppPicker = false
+                update(cfg.copy(tapAction = TapAction.APP, tapPackage = pkg))
+            },
+        )
     }
 
     if (showAppFont) {
@@ -827,47 +893,273 @@ private fun SettingsScreen(launchId: Int) {
     }
 }
 
-/** A titled group: label above, content in a rounded surface container (Material 3 settings layout). */
+/** Sub-pages of the settings home list. */
+private enum class Page(val title: String) {
+    STYLE("Style"), FONT("Font"), COLOURS("Colours"), TIME("Time & date"), LAYOUT("Layout"), TAP("On tap"),
+}
+
+private fun fontName(cfg: WidgetConfig): String {
+    if (cfg.style == ClockStyle.ANALOG) return "Analog"
+    val f = cfg.clockFont
+    return when (f.source) {
+        FontSource.SYSTEM -> FontManager.systemFamilies.firstOrNull { it.first == f.systemFamily }?.second ?: "System"
+        FontSource.GOOGLE -> f.googleFamily.ifBlank { "Google Fonts" }
+        FontSource.FILE -> "Font file"
+    }
+}
+
+/** Collects the rows of a [Group]; rows can be added conditionally. */
+private class GroupScope {
+    val items = mutableListOf<@Composable () -> Unit>()
+    fun item(content: @Composable () -> Unit) { items += content }
+}
+
+/**
+ * Material 3 Expressive list group (Android 16 Settings style): each row is its own tonal container,
+ * 2dp apart, with large corners on the outside of the group and small corners between rows.
+ */
 @Composable
-private fun Section(title: String, padded: Boolean = true, content: @Composable () -> Unit) {
+private fun Group(title: String? = null, build: GroupScope.() -> Unit) {
+    val items = GroupScope().apply(build).items
+    if (items.isEmpty()) return
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp),
-        )
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.fillMaxWidth(),
+        if (title != null) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+            )
+        }
+        Column(
+            Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Column(if (padded) Modifier.padding(16.dp) else Modifier.padding(vertical = 4.dp)) { content() }
+            items.forEachIndexed { i, content ->
+                val big = 24.dp
+                val small = 6.dp
+                val shape = RoundedCornerShape(
+                    topStart = if (i == 0) big else small,
+                    topEnd = if (i == 0) big else small,
+                    bottomStart = if (i == items.lastIndex) big else small,
+                    bottomEnd = if (i == items.lastIndex) big else small,
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = shape,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { content() }
+            }
+        }
+    }
+}
+
+/** Padding for free-form content (sliders, pickers) inside a group row. */
+@Composable
+private fun Pad(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), content = content)
+}
+
+/** Leading icon in a tonal circle, as in Android 16 Settings. */
+@Composable
+private fun RowIcon(
+    icon: ImageVector,
+    container: Color = MaterialTheme.colorScheme.secondaryContainer,
+    tint: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+) {
+    Box(
+        Modifier.size(40.dp).clip(CircleShape).background(container),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp)) }
+}
+
+/** Home list row: icon, title, current value, chevron. Opens a sub-page. */
+@Composable
+private fun NavRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        leadingContent = { RowIcon(icon) },
+        headlineContent = { Text(title) },
+        supportingContent = { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        trailingContent = {
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+}
+
+/** Clock style tile: live thumbnail on a wallpaper-like gradient, label below. */
+@Composable
+private fun StyleCard(
+    style: ClockStyle,
+    cfg: WidgetConfig,
+    selected: Boolean,
+    tick: Int,
+    fontVersion: Int,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    val thumb = remember(cfg, style, tick, fontVersion) {
+        val d = ctx.resources.displayMetrics.density
+        ClockRenderer.render(ctx, cfg.copy(style = style, sizePercent = 100), (168 * d).toInt(), (104 * d).toInt(), d * 0.7f)
+            .asImageBitmap()
+    }
+    val outline by animateColorAsState(if (selected) scheme.primary else Color.Transparent, tween(250), label = "cardOutline")
+    val corner by animateDpAsState(if (selected) 32.dp else 20.dp, spring(stiffness = Spring.StiffnessMediumLow), label = "cardCorner")
+    Column(
+        modifier
+            .clip(RoundedCornerShape(corner))
+            .background(if (selected) scheme.secondaryContainer else scheme.surfaceContainer)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(104.dp)
+                .clip(RoundedCornerShape(corner - 8.dp))
+                .background(Brush.linearGradient(listOf(scheme.primaryContainer, Color(0xFF1A1C22))))
+                .border(BorderStroke(2.dp, outline), RoundedCornerShape(corner - 8.dp)),
+        ) {
+            Image(thumb, style.label, Modifier.fillMaxSize().padding(8.dp), contentScale = ContentScale.Fit)
+        }
+        Row(
+            Modifier.padding(top = 10.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnimatedVisibility(selected) {
+                Icon(
+                    Icons.Rounded.Check, contentDescription = null,
+                    tint = scheme.onSecondaryContainer,
+                    modifier = Modifier.padding(end = 4.dp).size(18.dp),
+                )
+            }
+            Text(
+                style.label,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** Date format: preset chips (shown as today's date) or a custom pattern with a live result. */
+@Composable
+private fun DateFormatPicker(cfg: WidgetConfig, selectedId: Int, resetCount: Int, tick: Int, onFormat: (String) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val ctx = LocalContext.current
+    val now = remember(tick) { Date() }
+    val isPreset = cfg.dateFormat in DateFormats.PRESETS
+    var customOpen by remember(selectedId, resetCount) { mutableStateOf(!isPreset) }
+    var customText by remember(selectedId, resetCount) { mutableStateOf(if (isPreset) "" else cfg.dateFormat) }
+    Text("Format", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 10.dp))
+    ChipFlow {
+        DateFormats.PRESETS.forEach { f ->
+            val sample = remember(f, now) { SimpleDateFormat(f, Locale.getDefault()).format(now) }
+            Chip(
+                selected = !customOpen && cfg.dateFormat == f,
+                onClick = { customOpen = false; onFormat(f) },
+                label = { Text(sample) },
+            )
+        }
+        Chip(
+            selected = customOpen,
+            onClick = {
+                customOpen = true
+                if (customText.isBlank()) customText = cfg.dateFormat
+            },
+            label = { Text("Custom") },
+        )
+    }
+    Reveal(customOpen) {
+        val fmt = remember(customText) { DateFormats.formatter(customText) }
+        val shows = remember(fmt, now) { fmt?.format(now) }
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = customText,
+            onValueChange = {
+                customText = it
+                if (DateFormats.formatter(it) != null) onFormat(it)
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            placeholder = { Text("EEE, d MMM  ·  %a %d %b") },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+            isError = customText.isNotBlank() && fmt == null,
+            supportingText = {
+                Text(
+                    when {
+                        customText.isBlank() -> ""
+                        fmt == null -> "Unknown code"
+                        else -> "$shows"
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        val cheats = remember(now) {
+            DateFormats.CHEATSHEET.joinToString("  ") { code ->
+                "$code ${SimpleDateFormat(code, Locale.getDefault()).format(now)}"
+            }
+        }
+        Text(
+            cheats,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            AssistChip(onClick = { openUrl(ctx, DateFormats.PATTERN_GUIDE_URL) }, label = { Text("Codes") },
+                trailingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(AssistChipDefaults.IconSize)) })
+            AssistChip(onClick = { openUrl(ctx, DateFormats.STRFTIME_GUIDE_URL) }, label = { Text("% codes") },
+                trailingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(AssistChipDefaults.IconSize)) })
         }
     }
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+    summary: String? = null,
+    onChange: (Boolean) -> Unit,
+) {
+    val content = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+            .heightIn(min = 64.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-        )
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = content)
+            if (summary != null) {
+                Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
         Switch(
             checked = checked,
             onCheckedChange = null, // the whole row toggles
             enabled = enabled,
             thumbContent = if (checked) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
+                { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
             } else {
                 null
             },
@@ -1284,6 +1576,7 @@ private fun PreviewCard(
     light: Boolean,
     onToggleLight: () -> Unit,
     modifier: Modifier = Modifier,
+    height: Dp = 200.dp,
 ) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
@@ -1294,7 +1587,7 @@ private fun PreviewCard(
     Box(
         modifier
             .fillMaxWidth()
-            .height(200.dp)
+            .height(height)
             .clip(MaterialTheme.shapes.extraLarge)
             .background(Brush.linearGradient(listOf(g1, g2, g3)))
             .clickable(onClick = onToggleLight),
@@ -1312,11 +1605,17 @@ private fun PreviewCard(
                 modifier = Modifier.fillMaxSize().padding(14.dp),
             )
         }
-        Text(
-            if (light) "☀" else "☾",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (light) Color(0x99000000) else Color(0x99FFFFFF),
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+        Icon(
+            if (light) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+            contentDescription = if (light) "Light backdrop" else "Dark backdrop",
+            tint = if (light) Color(0x99000000) else Color(0xB3FFFFFF),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+                .clip(CircleShape)
+                .background(if (light) Color(0x1A000000) else Color(0x26FFFFFF))
+                .padding(6.dp)
+                .size(16.dp),
         )
     }
 }
