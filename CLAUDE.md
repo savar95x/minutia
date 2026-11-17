@@ -85,23 +85,29 @@ App icon: Inter Display **ExtraBold** "m:", cream `#EEE7DC` "m" + accent `#E2957
 Don't hand-edit the path data; change the script's constants and regenerate. Full spec: `docs/icon/DESIGN.md`.
 
 ## UI conventions and owner preferences
-- Scaffold + collapsing `LargeTopAppBar` (default colours). ⋮ menu: **App font…** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview** (checkbox, app pref
-  `ui`/`pin_preview`), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark mode only, page/surface
-  black, section containers stay tonal), **Reset widget…** (confirm dialog, destructive), divider, **Source code**
-  (opens the GitHub repo), version.
-- `PreviewCard` (200dp) is the first item of the scrolling settings (scrolls away, like Wallpaper & style),
-  or pinned above the list when Pin preview is on (then the app bar has no scrolled tint).
-- `Section(title)` = primary-coloured label above a `surfaceContainer`, `extraLarge`-shape group.
-- Option rows: `Segmented` = Material `SingleChoiceSegmentedButtonRow` with the default animated check.
+- **Home list + sub-pages (1.12.0)**: `SettingsScreen` holds all state; `page: Page?` (`rememberSaveable`) picks
+  home (`null`) or a sub-page (STYLE, FONT, COLOURS, TIME, LAYOUT, TAP). `AnimatedContent` gives each page its own
+  Scaffold + collapsing `LargeTopAppBar` (back arrow on sub-pages, `BackHandler`), shared-axis X transition.
+  Home: preview, widget chips (+ Add assist chip), `NavRow` groups with current values, Battery row.
+  Sub-pages always pin a 168dp preview.
+- ⋮ menu (home only): **App font** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview**
+  (checkbox, `ui`/`pin_preview`, home page only), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark
+  mode only; `ColorScheme.pureBlack()` makes page #000 and lerps every surface container most of the way to black),
+  **Reset widget** (confirm dialog), divider, **Source code** with "Version X" under it (opens the repo).
+- `Group(title) { item { } }` = Material 3 Expressive list: each row its own `surfaceContainer` tile, 2dp gaps,
+  24dp outer / 6dp inner corners. Rows: `NavRow`, `SwitchRow` (optional icon/summary), `ListItem`, or `Pad { }`
+  for free-form content (16dp padding). Conditional rows: `if (…) item { }` (group animates its size).
+- Icons: `material-icons-extended`, **Rounded** set (AutoMirrored for arrows). `RowIcon` = icon in a 40dp
+  `secondaryContainer` circle.
+- `Segmented` = Material `SingleChoiceSegmentedButtonRow` with the default animated check.
   Keep labels short enough for a third of the card ("Default · Clock · Custom").
 - Chips via `Chip` (FilterChip + check when selected). `SwitchRow` = whole row toggles, Switch has a check thumb.
-- Style picker: plain `LazyRow` of **132dp** cards so the next one peeks; never size cards so a whole
-  number fit exactly. Opens scrolled to the selected style.
+- Style page: 2-column grid of `StyleCard`s (selected = secondaryContainer + rounder corners + check).
 - Font chips row: **recents first (newest first), then the curated list** `FontManager.googleSuggestions`
   in fixed order. The owner wants **Fragment Mono 3rd** in the curated list. Never reorder/replace curated
   picks; curated names are never stored as recents (max 50 recents).
 - Widget chips: "Widget N" + muted `W×H` (dp).
-- Conditional settings appear via `Reveal(visible) { }` (expand + fade).
+- Conditional content inside a row appears via `Reveal(visible) { }` (expand + fade).
 - Settings copy is deliberately terse ("Wallpaper colours", "Shadow", "On tap", "Battery").
 
 ## Gotchas

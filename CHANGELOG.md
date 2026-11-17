@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.12.0] - 2026-11-17
+
+### Changed
+- New settings layout: a home list (Style, Font, Colours, Time & date, Layout, On tap, Battery) showing each current value, with a focused page for each and the preview pinned on top while you edit.
+- Material 3 Expressive look: grouped rows with icons, rounded containers, a 2-column style grid, radio list for On tap, smoother page transitions.
+- Pure black now darkens every surface (cards, menus, sheets, dialogs, app bar), not just the background.
+- Source code and version are one item in the ⋮ menu.
+- Battery row opens App info when unrestricted, for OxygenOS's auto-launch and background activity toggles.
+
 ## [1.11.0] - 2026-11-16
 
 ### Added

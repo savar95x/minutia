@@ -614,7 +614,9 @@ private fun SettingsScreen(launchId: Int) {
                                         },
                                         headlineContent = { Text("Battery") },
                                         supportingContent = { Text(if (ok) "Unrestricted · updates on time" else "Restricted · clock may lag") },
-                                        trailingContent = if (ok) null else {
+                                        trailingContent = if (ok) {
+                                            { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
+                                        } else {
                                             { FilledTonalButton(onClick = {
                                                 runCatching {
                                                     ctx.startActivity(
@@ -692,7 +694,7 @@ private fun SettingsScreen(launchId: Int) {
                                 }
                             } else if (cfg.style == ClockStyle.ANALOG) {
                                 Text(
-                                    "The analog face has no text. Turn on the date to pick its font.",
+                                    "Analog has no text",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = scheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -957,7 +959,7 @@ private fun Group(title: String? = null, build: GroupScope.() -> Unit) {
 /** Padding for free-form content (sliders, pickers) inside a group row. */
 @Composable
 private fun Pad(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), content = content)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp), content = content)
 }
 
 /** Leading icon in a tonal circle, as in Android 16 Settings. */
@@ -1140,7 +1142,7 @@ private fun SwitchRow(
             .fillMaxWidth()
             .heightIn(min = 64.dp)
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {

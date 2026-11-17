@@ -15,6 +15,11 @@ Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
   Kern, Fontime, Halfpast and Dialtone. Glyph was avoided (Nothing's trademark), Tempo/Chrono/Epoch are crowded.
 
 ## Settings screen layout
+- **Overhaul (1.12.0)**: owner felt the single long page didn't look production-ready. Offered three layouts
+  (home list + sub-pages, one page restyled, fixed preview + tabs); he picked **home list + sub-pages** like
+  Pixel Settings, styled as Material 3 Expressive grouped rows with icons. The 132dp style `LazyRow` became a
+  2-column grid on its own page. Pure black was reworked at the same time: background-only black left grey
+  cards/menus, so all surface containers are now darkened too.
 - **Preview behaviour (1.7.0)**: default = the full preview scrolls away with the page (like Google's
   Wallpaper & style); optional **Pin preview** in the ⋮ menu keeps it fixed (like widget editors such as KWGT).
   Rejected along the way, as not production-like:
