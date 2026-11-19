@@ -92,7 +92,8 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
   Sub-pages always pin a 168dp preview.
 - ⋮ menu (home only): **App font** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview**
   (checkbox, `ui`/`pin_preview`, home page only), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark
-  mode only; `ColorScheme.pureBlack()` makes page #000 and lerps every surface container most of the way to black),
+  mode only; `ColorScheme.pureBlack()` is copied from Aria's `amoled()`: page #000, containers lerped toward black;
+  app bar stays black, no scrolled tint). Menu uses the default (Aria's) shape, not a custom one,
   **Reset widget** (confirm dialog), divider, **Source code** with "Version X" under it (opens the repo).
 - `Group(title) { item { } }` = Material 3 Expressive list: each row its own `surfaceContainer` tile, 2dp gaps,
   24dp outer / 6dp inner corners. Rows: `NavRow`, `SwitchRow` (optional icon/summary), `ListItem`, or `Pad { }`

@@ -259,26 +259,20 @@ private fun AppTheme(content: @Composable () -> Unit) {
 }
 
 /**
- * AMOLED variant of a dark scheme. Like most pure-black themes, the page is #000 and every tonal
- * surface is pulled most of the way to black (keeping its wallpaper tint), so cards, sheets, menus,
- * dialogs and the scrolled app bar stay distinguishable but none of them glow grey.
+ * AMOLED variant of a dark scheme, identical to Aria's: page #000, raised containers pulled most of the way
+ * to black but keeping a hint of the wallpaper hue.
  */
-private fun ColorScheme.pureBlack(): ColorScheme {
-    fun dim(c: Color, keep: Float) = lerp(Color.Black, c, keep)
-    return copy(
-        background = Color.Black,
-        surface = Color.Black,
-        surfaceDim = Color.Black,
-        surfaceContainerLowest = Color.Black,
-        surfaceContainerLow = dim(surfaceContainerLow, 0.45f),
-        surfaceContainer = dim(surfaceContainer, 0.55f),
-        surfaceContainerHigh = dim(surfaceContainerHigh, 0.62f),
-        surfaceContainerHighest = dim(surfaceContainerHighest, 0.7f),
-        surfaceBright = dim(surfaceBright, 0.7f),
-        surfaceVariant = dim(surfaceVariant, 0.7f),
-        inverseOnSurface = Color.Black,
-    )
-}
+private fun ColorScheme.pureBlack(): ColorScheme = copy(
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceDim = Color.Black,
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, 0.45f),
+    surfaceContainer = lerp(Color.Black, surfaceContainer, 0.55f),
+    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, 0.65f),
+    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, 0.75f),
+    surfaceVariant = lerp(Color.Black, surfaceVariant, 0.7f),
+)
 
 /** App-wide theme preferences (prefs `ui`), observable so the theme updates immediately. */
 object ThemePrefs {
@@ -426,7 +420,6 @@ private fun SettingsScreen(launchId: Int) {
                             DropdownMenu(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false },
-                                shape = MaterialTheme.shapes.large,
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("App font") },
@@ -476,7 +469,8 @@ private fun SettingsScreen(launchId: Int) {
                     },
                     scrollBehavior = scrollBehavior,
                     // With a pinned preview nothing scrolls under the bar, so it shouldn't tint.
-                    colors = if (pinned) {
+                    // Pure black keeps the bar black like Aria's; a pinned preview means nothing scrolls under it.
+                    colors = if (pinned || (systemDark && ThemePrefs.pureBlack)) {
                         TopAppBarDefaults.topAppBarColors(scrolledContainerColor = scheme.surface)
                     } else {
                         TopAppBarDefaults.topAppBarColors()

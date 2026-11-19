@@ -3,6 +3,12 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.12.1] - 2026-11-19
+
+### Changed
+- Pure black uses the same colours as Aria, and the top bar stays black while scrolling.
+- ⋮ menu has Aria's smaller corner radius.
+
 ## [1.12.0] - 2026-11-17
 
 ### Changed
