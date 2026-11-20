@@ -42,6 +42,8 @@ import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ColorScheme
@@ -358,6 +360,9 @@ private fun SettingsScreen(launchId: Int) {
         }
     }
 
+    // New release on GitHub? Checked once per launch; silent when offline.
+    LaunchedEffect(Unit) { Updater.check(ctx) }
+
     // Google Fonts name list for type-ahead (shared by the clock and date font editors).
     var catalogueVersion by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
@@ -553,6 +558,7 @@ private fun SettingsScreen(launchId: Int) {
                                     }
                                 }
                             }
+                            UpdateCard()
                             Group {
                                 item { NavRow(Icons.Rounded.Widgets, "Style", cfg.style.label) { page = Page.STYLE } }
                                 item { NavRow(Icons.Rounded.TextFields, "Font", fontName(cfg)) { page = Page.FONT } }
@@ -886,6 +892,130 @@ private fun SettingsScreen(launchId: Int) {
             },
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Shown on the home page only when GitHub has a newer release. Tap for release notes. */
+@Composable
+private fun UpdateCard() {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val st = Updater.state
+    var notesOpen by remember { mutableStateOf(false) }
+    val release = when (st) {
+        Updater.State.Idle -> null
+        is Updater.State.Available -> st.release
+        is Updater.State.Downloading -> st.release
+        is Updater.State.Ready -> st.release
+        is Updater.State.Installing -> st.release
+        is Updater.State.Failed -> st.release
+    }
+    AnimatedVisibility(
+        visible = release != null,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+    ) {
+        if (release == null) return@AnimatedVisibility
+        val scheme = MaterialTheme.colorScheme
+        fun act() {
+            when (val s = Updater.state) {
+                is Updater.State.Available, is Updater.State.Failed -> scope.launch { Updater.download(ctx, release) }
+                is Updater.State.Ready -> scope.launch { Updater.install(ctx, s.release, s.file) }
+                else -> Unit
+            }
+        }
+        Surface(color = scheme.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column {
+                ListItem(
+                    modifier = Modifier.clickable { notesOpen = true },
+                    leadingContent = {
+                        RowIcon(Icons.Rounded.SystemUpdate, container = scheme.primary, tint = scheme.onPrimary)
+                    },
+                    headlineContent = { Text("Update available") },
+                    supportingContent = {
+                        Text(
+                            when (st) {
+                                is Updater.State.Downloading -> "${release.version} · ${(st.progress * 100).roundToInt()}%"
+                                is Updater.State.Ready -> "${release.version} · downloaded"
+                                is Updater.State.Installing -> "${release.version} · installing"
+                                is Updater.State.Failed -> st.message
+                                else -> "${release.version} · ${"%.1f".format(release.size / 1_048_576f)} MB"
+                            },
+                        )
+                    },
+                    trailingContent = {
+                        when (st) {
+                            is Updater.State.Downloading, is Updater.State.Installing ->
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
+                            is Updater.State.Ready -> Button(onClick = ::act) { Text("Install") }
+                            is Updater.State.Failed -> FilledTonalButton(onClick = ::act) { Text("Retry") }
+                            else -> Button(onClick = ::act) { Text("Update") }
+                        }
+                    },
+                    colors = ListItemDefaults.colors(
+                        containerColor = Color.Transparent,
+                        headlineColor = scheme.onPrimaryContainer,
+                        supportingColor = scheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    ),
+                )
+                if (st is Updater.State.Downloading) {
+                    LinearProgressIndicator(
+                        progress = { st.progress },
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    )
+                }
+            }
+        }
+        if (notesOpen) {
+            ModalBottomSheet(onDismissRequest = { notesOpen = false }) {
+                Column(
+                    Modifier
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text("Minutia ${release.version}", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "You have ${Updater.currentVersion(ctx)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 16.dp),
+                    )
+                    releaseNotes(release.notes).forEach { (heading, line) ->
+                        if (heading) {
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = scheme.primary,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                            )
+                        } else {
+                            Row(Modifier.padding(vertical = 3.dp)) {
+                                Text("•", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(16.dp))
+                                Text(line, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = { notesOpen = false; act() },
+                        enabled = st !is Updater.State.Downloading && st !is Updater.State.Installing,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (st is Updater.State.Ready) "Install" else "Update") }
+                }
+            }
+        }
+    }
+}
+
+/** CHANGELOG markdown → (isHeading, text) lines: "### Added" headings and "- item" bullets. */
+private fun releaseNotes(md: String): List<Pair<Boolean, String>> = md.lines().mapNotNull { raw ->
+    val l = raw.trim()
+    when {
+        l.isEmpty() || l.startsWith("## ") -> null
+        l.startsWith("#") -> true to l.trimStart('#').trim()
+        l.startsWith("- ") || l.startsWith("* ") -> false to l.drop(2).replace("`", "")
+        else -> false to l.replace("`", "")
     }
 }
 
