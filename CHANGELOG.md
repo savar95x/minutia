@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.13.0] - 2026-11-20
+
+### Added
+- In-app updates: when a new release is on GitHub, an Update card appears at the top. Tap it for what's new; Update downloads once (resumes if interrupted, checked against GitHub's checksum) and installs in place, keeping your settings. Old update files are cleaned up automatically.
+
 ## [1.12.1] - 2026-11-19
 
 ### Changed
