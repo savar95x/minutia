@@ -314,12 +314,6 @@ private fun parseHex(s: String): Int? {
     }
 }
 
-/** The widget's size on the home screen in dp, e.g. "300×140". */
-private fun widgetLabel(ctx: Context, id: Int, index: Int): String {
-    val s = WidgetUpdater.size(ctx, id)
-    return "${s.wDp}×${s.hDp}"
-}
-
 @Composable
 private fun SettingsScreen(launchId: Int) {
     val ctx = LocalContext.current
@@ -343,10 +337,12 @@ private fun SettingsScreen(launchId: Int) {
     var fontVersion by remember { mutableIntStateOf(0) }
     var lightPreview by remember { mutableStateOf(false) }
 
+    // One clock: settings apply to every placed Minutia widget (e.g. while swapping in the named variant).
     fun commit() {
         ConfigStore.save(ctx, selectedId, cfg)
-        if (selectedId >= 0) {
-            WidgetUpdater.update(ctx, selectedId)
+        widgetIds.filter { it != selectedId }.forEach { ConfigStore.save(ctx, it, cfg) }
+        if (widgetIds.isNotEmpty()) {
+            WidgetUpdater.updateAll(ctx)
             TickScheduler.schedule(ctx)
         }
     }
@@ -388,6 +384,8 @@ private fun SettingsScreen(launchId: Int) {
     var showAppFont by remember { mutableStateOf(false) }
     var pinPreview by remember { mutableStateOf(uiPrefs.getBoolean("pin_preview", false)) }
     val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
+    // Size of the placed widget on the home screen, in dp (shown on the preview).
+    val sizeLabel = if (selectedId >= 0) "${size.wDp} × ${size.hDp} dp" else null
 
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
     BackHandler(enabled = page != null) { page = null }
@@ -489,6 +487,7 @@ private fun SettingsScreen(launchId: Int) {
                         cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview },
                         Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
                         height = if (shown != null) 168.dp else 200.dp,
+                        sizeLabel = sizeLabel,
                     )
                 }
                 Column(
@@ -503,38 +502,7 @@ private fun SettingsScreen(launchId: Int) {
                         null -> {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (!pinned) {
-                                    PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, Modifier.padding(top = 4.dp))
-                                }
-                                // ---------- which widget ----------
-                                if (widgetIds.isNotEmpty() && (widgetIds.size > 1 || pinSupported)) {
-                                    ChipFlow {
-                                        widgetIds.forEachIndexed { i, id ->
-                                            Chip(
-                                                selected = id == selectedId,
-                                                onClick = { selectedId = id },
-                                                label = {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text("Widget ${i + 1}")
-                                                        Spacer(Modifier.width(6.dp))
-                                                        Text(
-                                                            widgetLabel(ctx, id, i),
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = scheme.onSurfaceVariant,
-                                                        )
-                                                    }
-                                                },
-                                            )
-                                        }
-                                        if (pinSupported) {
-                                            AssistChip(
-                                                onClick = {
-                                                    AppWidgetManager.getInstance(ctx).requestPinAppWidget(WidgetUpdater.component(ctx), null, null)
-                                                },
-                                                label = { Text("Add") },
-                                                leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
-                                            )
-                                        }
-                                    }
+                                    PreviewCard(cfg, size, minuteTick, fontVersion, lightPreview, { lightPreview = !lightPreview }, Modifier.padding(top = 4.dp), sizeLabel = sizeLabel)
                                 }
                             }
                             if (widgetIds.isEmpty()) {
@@ -1703,6 +1671,7 @@ private fun PreviewCard(
     onToggleLight: () -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 200.dp,
+    sizeLabel: String? = null,
 ) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
@@ -1729,6 +1698,19 @@ private fun PreviewCard(
                 contentDescription = "Preview",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize().padding(14.dp),
+            )
+        }
+        if (sizeLabel != null) {
+            Text(
+                sizeLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (light) Color(0x99000000) else Color(0xB3FFFFFF),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp)
+                    .clip(CircleShape)
+                    .background(if (light) Color(0x1A000000) else Color(0x26FFFFFF))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
         Icon(

@@ -15,6 +15,9 @@ Versions refer to [`CHANGELOG.md`](../CHANGELOG.md).
   Kern, Fontime, Halfpast and Dialtone. Glyph was avoided (Nothing's trademark), Tempo/Chrono/Epoch are crowded.
 
 ## Settings screen layout
+- **One clock (1.13.1)**: owner only ever uses one Minutia widget (it replaces the stock clock), so the
+  Widget 1/2 chips and the Add chip were removed; settings apply to all placed widgets. He still wants the
+  widget's dp size, so it's a pill on the preview.
 - **Overhaul (1.12.0)**: owner felt the single long page didn't look production-ready. Offered three layouts
   (home list + sub-pages, one page restyled, fixed preview + tabs); he picked **home list + sub-pages** like
   Pixel Settings, styled as Material 3 Expressive grouped rows with icons. The 132dp style `LazyRow` became a

@@ -89,7 +89,8 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
 - **Home list + sub-pages (1.12.0)**: `SettingsScreen` holds all state; `page: Page?` (`rememberSaveable`) picks
   home (`null`) or a sub-page (STYLE, FONT, COLOURS, TIME, LAYOUT, TAP). `AnimatedContent` gives each page its own
   Scaffold + collapsing `LargeTopAppBar` (back arrow on sub-pages, `BackHandler`), shared-axis X transition.
-  Home: preview, widget chips (+ Add assist chip), `NavRow` groups with current values, Battery row.
+  Home: preview (with the placed widget's `W × H dp` pill bottom-left), `NavRow` groups with current values,
+  Battery row. **One clock (1.13.1)**: no widget chips; `commit()` saves the config to every placed id and updates all.
   Sub-pages always pin a 168dp preview.
 - ⋮ menu (home only): **App font** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview**
   (checkbox, `ui`/`pin_preview`, home page only), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark
@@ -108,7 +109,6 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
 - Font chips row: **recents first (newest first), then the curated list** `FontManager.googleSuggestions`
   in fixed order. The owner wants **Fragment Mono 3rd** in the curated list. Never reorder/replace curated
   picks; curated names are never stored as recents (max 50 recents).
-- Widget chips: "Widget N" + muted `W×H` (dp).
 - Conditional content inside a row appears via `Reveal(visible) { }` (expand + fade).
 - Settings copy is deliberately terse ("Wallpaper colours", "Shadow", "On tap", "Battery").
 
