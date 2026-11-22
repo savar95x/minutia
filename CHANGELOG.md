@@ -3,6 +3,11 @@
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
 Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
+## [1.13.2] - 2026-11-22
+
+### Changed
+- App icon: more space around the "m:", so it sits comfortably in OxygenOS's icon circle like the rest of your apps.
+
 ## [1.13.1] - 2026-11-20
 
 ### Changed
