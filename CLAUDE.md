@@ -16,6 +16,14 @@ Read this file first. Then, as needed:
 
 ---
 
+## Shared kit (`dev.savar.kit`, Nov 2026)
+Aria, Minutia, Hiatus and Regista share byte-identical files in `app/src/main/java/dev/savar/kit/` (updater +
+update card/row, top bar colours, pure black, settings rows with tonal icons, Aria's text styles, app font page +
+typeface picker). **Never edit them in one repo only**: change, copy to all four, ship all four. See
+[`docs/KIT.md`](docs/KIT.md); `scripts/kit-check.sh` diffs against the other repos. Owner decisions (Nov 2026): icons on
+every settings row; in pure black the top bar stays black when scrolled; updates only as a card, never a pop-up;
+the same Font row/page in every app.
+
 ## Golden rules
 1. **Never change the signing key (`app/release.jks`) or `applicationId`.** Installed copies could no
    longer update, and uninstalling wipes the owner's widget settings. `scripts/inspect-apk.py` checks the signer.
@@ -69,9 +77,8 @@ python3 scripts/inspect-apk.py out/Minutia-X.Y.Z.apk "Some new label"   # pip in
 | `WidgetConfig.kt` | Per-widget settings, JSON in SharedPreferences `widget_configs` (`w_<id>`); new widgets inherit the last edited config (`last`). `FontSpec`, `DateFontMode`, enums. |
 | `FontManager.kt` | System fonts, Google Fonts download + catalogue + type-ahead, local .ttf/.otf import (`filesDir/fonts`), recent fonts. `typeface(ctx, FontSpec)` resolves any font. |
 | `DateFormats.kt` | Date presets and custom patterns: SimpleDateFormat letters or strftime `%` codes (`fromStrftime`). Invalid patterns aren't saved; renderer falls back to the first preset. |
-| `AppFont.kt` | Font of the app's own UI (not the widget): `FontSpec` in prefs `ui`/`app_font`, observable state read by `AppTheme`; Google fonts get 400/500/700 downloaded so the type hierarchy survives. Default = system font. |
 | `FontBrowser.kt` | `FontBrowserSheet`: full-height sheet of all Google Fonts (popularity order, search, category chips), rows preview name + "12:45" via `FontManager.previewTypeface` (Google `text=` subset, few KB, cached in `filesDir/fonts/preview`, max 4 concurrent). Opened from "Browse all fonts" in `FontEditor`. |
-| `Updater.kt` | In-app updates. `check()` once per launch: GitHub `releases/latest` with ETag (304s are free), compares `tag_name` to `versionName`. `download()` → `cacheDir/updates/Minutia-X.Y.Z.apk` (`.part` + HTTP Range resume, verified by size + the asset's `sha256` digest, reused if present; older/stale APKs pruned, all pruned once up to date). `install()` → `PackageInstaller` session (`USER_ACTION_NOT_REQUIRED` on 12+, works silently once Minutia is installer of record); `InstallResultReceiver` launches the system confirm or reports failure. Needs "Install unknown apps" for Minutia (opened if missing). UI: `UpdateCard` (home top, primaryContainer) + release-notes sheet rendering the CHANGELOG section. **Depends on the release asset being `Minutia-X.Y.Z.apk` signed with the same key.** |
+| `dev/savar/kit/*` | Shared kit (see above): `Updates` (on resume), `UpdateCard` on home, app font (`AppFont`, ⋮ → App font page → Typeface), rows (`Group`/`NavRow`/`SwitchRow` delegate to the kit). |
 | `TapActivity.kt` | Invisible trampoline for widget taps (see Gotchas). |
 | `MainActivity.kt` | Compose settings screen + widget configure/reconfigure activity. Composables: `SettingsScreen`, `PreviewCard`, `FontEditor` (reusable System/Google/File picker + weight, used for clock and date), `Section`, `SwitchRow`, `LabeledSlider`, `ColorPicker`, `Segmented`, `Chip`, `ChipFlow`, `Reveal`, `AppPickerDialog`. |
 
@@ -93,7 +100,7 @@ Don't hand-edit the path data; change the script's constants and regenerate. Ful
   Battery row. **One clock (1.13.1)**: no widget chips; `commit()` saves the config to every placed id and updates all.
   Sub-pages always pin a 168dp preview.
 - ⋮ menu (home only): **App font** (bottom sheet reusing `FontEditor` with `showWeight = false`), **Pin preview**
-  (checkbox, `ui`/`pin_preview`, home page only), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark
+  (checkbox, `ui`/`pin_preview`, home page only), **Theme** (System/Light/Dark dialog, `ui`/`theme`), **Pure black** (checkbox, `ui`/`pure_black`, `ThemePrefs`; dark
   mode only; `ColorScheme.pureBlack()` is copied from Aria's `amoled()`: page #000, containers lerped toward black;
   app bar stays black, no scrolled tint). Menu uses the default (Aria's) shape, not a custom one,
   **Reset widget** (confirm dialog), divider, **Source code** with "Version X" under it (opens the repo).
