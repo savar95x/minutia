@@ -2,6 +2,35 @@
 
 package dev.savar.minutia
 
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import dev.savar.kit.AppFont
+import dev.savar.kit.FontPageContent
+import dev.savar.kit.FontSample
+import dev.savar.kit.FontSettings
+import dev.savar.kit.Kit
+import dev.savar.kit.KitApp
+import dev.savar.kit.KitGroup
+import dev.savar.kit.KitGroupScope
+import dev.savar.kit.KitNavRow
+import dev.savar.kit.KitPad
+import dev.savar.kit.KitRowIcon
+import dev.savar.kit.KitSegmented
+import dev.savar.kit.KitSwitchRow
+import dev.savar.kit.TypefaceContent
+import dev.savar.kit.UpdateCard
+import dev.savar.kit.Updates
+import dev.savar.kit.kitTopBarColors
+import dev.savar.kit.kitTypography
+import dev.savar.kit.pureBlack
+
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
@@ -18,7 +47,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -29,7 +57,6 @@ import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Contrast
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.FontDownload
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.LightMode
@@ -47,7 +74,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.lerp
@@ -189,7 +215,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -227,75 +252,92 @@ class MainActivity : ComponentActivity() {
             WidgetUpdater.update(this, launchId)
             TickScheduler.schedule(this)
         }
+        Kit.init(MinutiaKit)
         setContent {
             AppTheme { SettingsScreen(launchId) }
         }
     }
 }
 
+/** Light or dark: follow the system, or always one of them. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+@Composable
+internal fun isAppDark(): Boolean = when (ThemePrefs.mode) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+}
+
+/** Material 3 Expressive with the wallpaper's colours, like Aria, Hiatus and Regista. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
     val ctx = LocalContext.current
+    ThemePrefs.load(ctx)
+    val dark = isAppDark()
     val base = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         dark -> darkColorScheme()
         else -> lightColorScheme()
     }
-    ThemePrefs.load(ctx)
-    // Pure black (AMOLED): only the page goes black; section cards keep their tonal containers.
     val scheme = if (dark && ThemePrefs.pureBlack) base.pureBlack() else base
     val activity = ctx as? android.app.Activity
+    val view = LocalView.current
     SideEffect {
-        // Window behind Compose (shown while launching and during transitions) matches the page.
-        activity?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(scheme.background.toArgb()))
+        activity?.window?.let { w ->
+            // Window behind Compose (shown while launching and during transitions) matches the page.
+            w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(scheme.background.toArgb()))
+            WindowCompat.getInsetsController(w, view).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
     }
-    AppFont.load(ctx)
-    val spec = AppFont.spec
-    val version = AppFont.version
-    val typography = remember(spec, version) {
-        if (spec.source == FontSource.SYSTEM && spec.systemFamily == "sans-serif") Typography()
-        else Typography().withFamily(AppFont.family(ctx))
+    // App font: the kit's, migrating a Google Font picked in Minutia's old App font sheet.
+    AppFont.load(ctx) {
+        val json = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).getString("app_font", null)
+        val o = json?.let { runCatching { org.json.JSONObject(it) }.getOrNull() }
+        if (o != null && o.optString("source") == "GOOGLE") o.optString("googleFamily") else null
     }
-    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    val font = AppFont.settings
+    val typography = remember(font) { kitTypography(font) }
+    MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), typography = typography, content = content)
 }
-
-/**
- * AMOLED variant of a dark scheme, identical to Aria's: page #000, raised containers pulled most of the way
- * to black but keeping a hint of the wallpaper hue.
- */
-private fun ColorScheme.pureBlack(): ColorScheme = copy(
-    background = Color.Black,
-    surface = Color.Black,
-    surfaceDim = Color.Black,
-    surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, 0.45f),
-    surfaceContainer = lerp(Color.Black, surfaceContainer, 0.55f),
-    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, 0.65f),
-    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, 0.75f),
-    surfaceVariant = lerp(Color.Black, surfaceVariant, 0.7f),
-)
 
 /** App-wide theme preferences (prefs `ui`), observable so the theme updates immediately. */
 object ThemePrefs {
     private const val KEY_PURE_BLACK = "pure_black"
     var pureBlack by mutableStateOf(false)
         private set
+    var mode by mutableStateOf(ThemeMode.SYSTEM)
+        private set
     private var loaded = false
+
+    private fun p(ctx: Context) = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE)
 
     fun load(ctx: Context) {
         if (loaded) return
         loaded = true
-        pureBlack = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean(KEY_PURE_BLACK, false)
+        pureBlack = p(ctx).getBoolean(KEY_PURE_BLACK, false)
+        mode = ThemeMode.entries.firstOrNull { it.name == p(ctx).getString("theme", null) } ?: ThemeMode.SYSTEM
     }
 
     fun setPureBlack(ctx: Context, on: Boolean) {
         pureBlack = on
-        ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putBoolean(KEY_PURE_BLACK, on).apply()
+        p(ctx).edit().putBoolean(KEY_PURE_BLACK, on).apply()
+    }
+
+    fun setMode(ctx: Context, m: ThemeMode) {
+        mode = m
+        p(ctx).edit().putString("theme", m.name).apply()
     }
 }
 
 const val SOURCE_URL = "https://github.com/savar95x/minutia"
+
+/** What the shared kit needs to know about Minutia. */
+val MinutiaKit = KitApp(name = "Minutia", repo = "savar95x/minutia", apkName = { "Minutia-$it.apk" })
 
 private val SWATCHES = listOf(
     0xFFFFFFFF, 0xFFFFF4E0, 0xFFFFB59E, 0xFFFF7A59, 0xFFFF8FAB, 0xFFC9B6FF, 0xFF9AD0FF,
@@ -356,8 +398,8 @@ private fun SettingsScreen(launchId: Int) {
         }
     }
 
-    // New release on GitHub? Checked once per launch; silent when offline.
-    LaunchedEffect(Unit) { Updater.check(ctx) }
+    // New release on GitHub? Checked whenever Minutia comes to the front (at most every 10 min); shown as a card.
+    LifecycleResumeEffect(Unit) { Updates.onResume(ctx); onPauseOrDispose { } }
 
     // Google Fonts name list for type-ahead (shared by the clock and date font editors).
     var catalogueVersion by remember { mutableIntStateOf(0) }
@@ -371,7 +413,8 @@ private fun SettingsScreen(launchId: Int) {
     val haptics = LocalHapticFeedback.current
 
     var menuOpen by remember { mutableStateOf(false) }
-    val systemDark = isSystemInDarkTheme()
+    val appDark = isAppDark()
+    var themeDialog by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     val version = remember {
         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
@@ -381,28 +424,28 @@ private fun SettingsScreen(launchId: Int) {
     // App preference (not per widget): on the home page a pinned preview stays at the top like a widget
     // editor; otherwise it scrolls away like Wallpaper & style. Sub-pages always pin it.
     val uiPrefs = remember { ctx.getSharedPreferences("ui", Context.MODE_PRIVATE) }
-    var showAppFont by remember { mutableStateOf(false) }
+    var fontResetConfirm by remember { mutableStateOf(false) }
     var pinPreview by remember { mutableStateOf(uiPrefs.getBoolean("pin_preview", false)) }
     val pinSupported = remember { AppWidgetManager.getInstance(ctx).isRequestPinAppWidgetSupported }
     // Size of the placed widget on the home screen, in dp (shown on the preview).
     val sizeLabel = if (selectedId >= 0) "${size.wDp} × ${size.hDp} dp" else null
 
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
-    BackHandler(enabled = page != null) { page = null }
+    val back: () -> Unit = { page = if (page == Page.TYPEFACE) Page.APP_FONT else null }
+    BackHandler(enabled = page != null) { back() }
 
     AnimatedContent(
         targetState = page,
         transitionSpec = {
             // Material shared-axis X: forward slides in from the right, back from the left.
-            val forward = targetState != null
-            val dir = if (forward) 1 else -1
+            val dir = if ((targetState?.depth ?: 0) > (initialState?.depth ?: 0)) 1 else -1
             (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> dir * w / 6 } + fadeIn(tween(220, delayMillis = 60)))
                 .togetherWith(slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> -dir * w / 6 } + fadeOut(tween(120)))
         },
         label = "page",
     ) { shown ->
         val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        val pinned = shown != null || pinPreview
+        val pinned = (shown != null && shown.widget) || (shown == null && pinPreview)
         Scaffold(
             modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
@@ -410,12 +453,24 @@ private fun SettingsScreen(launchId: Int) {
                     title = { Text(shown?.title ?: "Minutia") },
                     navigationIcon = {
                         if (shown != null) {
-                            IconButton(onClick = { page = null }) {
+                            IconButton(onClick = back) {
                                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                             }
                         }
                     },
                     actions = {
+                        if (shown == Page.APP_FONT) Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "More")
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Reset to defaults") },
+                                    leadingIcon = { Icon(Icons.Rounded.RestartAlt, contentDescription = null) },
+                                    onClick = { menuOpen = false; fontResetConfirm = true },
+                                )
+                            }
+                        }
                         if (shown == null) Box {
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(Icons.Rounded.MoreVert, contentDescription = "More")
@@ -427,7 +482,7 @@ private fun SettingsScreen(launchId: Int) {
                                 DropdownMenuItem(
                                     text = { Text("App font") },
                                     leadingIcon = { Icon(Icons.Rounded.FontDownload, contentDescription = null) },
-                                    onClick = { menuOpen = false; showAppFont = true },
+                                    onClick = { menuOpen = false; page = Page.APP_FONT },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Pin preview") },
@@ -440,11 +495,25 @@ private fun SettingsScreen(launchId: Int) {
                                     },
                                 )
                                 DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("Theme")
+                                            Text(
+                                                listOf("System", "Light", "Dark")[ThemePrefs.mode.ordinal],
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = scheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    },
+                                    leadingIcon = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
+                                    onClick = { menuOpen = false; themeDialog = true },
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Pure black") },
                                     leadingIcon = { Icon(Icons.Rounded.Contrast, contentDescription = null) },
                                     trailingIcon = { Checkbox(checked = ThemePrefs.pureBlack, onCheckedChange = null) },
                                     onClick = { ThemePrefs.setPureBlack(ctx, !ThemePrefs.pureBlack); menuOpen = false },
-                                    enabled = systemDark,
+                                    enabled = appDark,
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Reset widget") },
@@ -471,16 +540,21 @@ private fun SettingsScreen(launchId: Int) {
                         }
                     },
                     scrollBehavior = scrollBehavior,
-                    // With a pinned preview nothing scrolls under the bar, so it shouldn't tint.
-                    // Pure black keeps the bar black like Aria's; a pinned preview means nothing scrolls under it.
-                    colors = if (pinned || (systemDark && ThemePrefs.pureBlack)) {
-                        TopAppBarDefaults.topAppBarColors(scrolledContainerColor = scheme.surface)
-                    } else {
-                        TopAppBarDefaults.topAppBarColors()
-                    },
+                    // Pure black keeps the bar black (all four apps); a pinned preview means nothing scrolls under it.
+                    colors = kitTopBarColors(appDark && ThemePrefs.pureBlack, flat = pinned),
                 )
             },
         ) { innerPadding ->
+            if (shown == Page.APP_FONT || shown == Page.TYPEFACE) {
+                if (shown == Page.APP_FONT) {
+                    FontPageContent(AppFont.settings, FONT_SAMPLE, onTypeface = { page = Page.TYPEFACE },
+                        onChange = { AppFont.set(ctx, it) }, modifier = Modifier.padding(innerPadding))
+                } else {
+                    TypefaceContent(AppFont.settings.font, onPick = { AppFont.set(ctx, AppFont.settings.copy(font = it)) },
+                        modifier = Modifier.padding(innerPadding))
+                }
+                return@Scaffold
+            }
             Column(Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
                 if (pinned) {
                     PreviewCard(
@@ -819,31 +893,40 @@ private fun SettingsScreen(launchId: Int) {
         )
     }
 
-    if (showAppFont) {
-        val scope = rememberCoroutineScope()
-        ModalBottomSheet(onDismissRequest = { showAppFont = false }) {
-            Column(
-                Modifier
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                Text("App font", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
-                FontEditor(
-                    spec = AppFont.spec,
-                    resetKey = "appfont",
-                    catalogueVersion = catalogueVersion,
-                    recentKey = fontVersion,
-                    onPreview = {},
-                    onApply = { f ->
-                        AppFont.set(ctx, f)
-                        scope.launch { AppFont.ensureWeights(ctx) }
-                    },
-                    onFontLoaded = { fontVersion++ },
-                    showWeight = false,
-                )
-            }
-        }
+    if (themeDialog) {
+        AlertDialog(
+            onDismissRequest = { themeDialog = false },
+            icon = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
+            title = { Text("Theme") },
+            text = {
+                Column {
+                    ThemeMode.entries.forEach { m ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                .selectable(selected = ThemePrefs.mode == m, role = Role.RadioButton) {
+                                    ThemePrefs.setMode(ctx, m); themeDialog = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = ThemePrefs.mode == m, onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(listOf("System", "Light", "Dark")[m.ordinal], style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { themeDialog = false }) { Text("Close") } },
+        )
+    }
+
+    if (fontResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { fontResetConfirm = false },
+            title = { Text("Reset font settings?") },
+            text = { Text("Typeface, size, weight and letter spacing go back to their defaults.") },
+            confirmButton = { TextButton(onClick = { AppFont.set(ctx, FontSettings()); fontResetConfirm = false }) { Text("Reset") } },
+            dismissButton = { TextButton(onClick = { fontResetConfirm = false }) { Text("Cancel") } },
+        )
     }
 
     if (confirmReset) {
@@ -863,134 +946,14 @@ private fun SettingsScreen(launchId: Int) {
     }
 }
 
-/** Shown on the home page only when GitHub has a newer release. Tap for release notes. */
-@Composable
-private fun UpdateCard() {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val st = Updater.state
-    var notesOpen by remember { mutableStateOf(false) }
-    val release = when (st) {
-        Updater.State.Idle -> null
-        is Updater.State.Available -> st.release
-        is Updater.State.Downloading -> st.release
-        is Updater.State.Ready -> st.release
-        is Updater.State.Installing -> st.release
-        is Updater.State.Failed -> st.release
-    }
-    AnimatedVisibility(
-        visible = release != null,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically(),
-    ) {
-        if (release == null) return@AnimatedVisibility
-        val scheme = MaterialTheme.colorScheme
-        fun act() {
-            when (val s = Updater.state) {
-                is Updater.State.Available, is Updater.State.Failed -> scope.launch { Updater.download(ctx, release) }
-                is Updater.State.Ready -> scope.launch { Updater.install(ctx, s.release, s.file) }
-                else -> Unit
-            }
-        }
-        Surface(color = scheme.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
-            Column {
-                ListItem(
-                    modifier = Modifier.clickable { notesOpen = true },
-                    leadingContent = {
-                        RowIcon(Icons.Rounded.SystemUpdate, container = scheme.primary, tint = scheme.onPrimary)
-                    },
-                    headlineContent = { Text("Update available") },
-                    supportingContent = {
-                        Text(
-                            when (st) {
-                                is Updater.State.Downloading -> "${release.version} · ${(st.progress * 100).roundToInt()}%"
-                                is Updater.State.Ready -> "${release.version} · downloaded"
-                                is Updater.State.Installing -> "${release.version} · installing"
-                                is Updater.State.Failed -> st.message
-                                else -> "${release.version} · ${"%.1f".format(release.size / 1_048_576f)} MB"
-                            },
-                        )
-                    },
-                    trailingContent = {
-                        when (st) {
-                            is Updater.State.Downloading, is Updater.State.Installing ->
-                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
-                            is Updater.State.Ready -> Button(onClick = ::act) { Text("Install") }
-                            is Updater.State.Failed -> FilledTonalButton(onClick = ::act) { Text("Retry") }
-                            else -> Button(onClick = ::act) { Text("Update") }
-                        }
-                    },
-                    colors = ListItemDefaults.colors(
-                        containerColor = Color.Transparent,
-                        headlineColor = scheme.onPrimaryContainer,
-                        supportingColor = scheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    ),
-                )
-                if (st is Updater.State.Downloading) {
-                    LinearProgressIndicator(
-                        progress = { st.progress },
-                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    )
-                }
-            }
-        }
-        if (notesOpen) {
-            ModalBottomSheet(onDismissRequest = { notesOpen = false }) {
-                Column(
-                    Modifier
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 24.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    Text("Minutia ${release.version}", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "You have ${Updater.currentVersion(ctx)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 16.dp),
-                    )
-                    releaseNotes(release.notes).forEach { (heading, line) ->
-                        if (heading) {
-                            Text(
-                                line,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = scheme.primary,
-                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                            )
-                        } else {
-                            Row(Modifier.padding(vertical = 3.dp)) {
-                                Text("•", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(16.dp))
-                                Text(line, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Button(
-                        onClick = { notesOpen = false; act() },
-                        enabled = st !is Updater.State.Downloading && st !is Updater.State.Installing,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (st is Updater.State.Ready) "Install" else "Update") }
-                }
-            }
-        }
-    }
-}
-
-/** CHANGELOG markdown → (isHeading, text) lines: "### Added" headings and "- item" bullets. */
-private fun releaseNotes(md: String): List<Pair<Boolean, String>> = md.lines().mapNotNull { raw ->
-    val l = raw.trim()
-    when {
-        l.isEmpty() || l.startsWith("## ") -> null
-        l.startsWith("#") -> true to l.trimStart('#').trim()
-        l.startsWith("- ") || l.startsWith("* ") -> false to l.drop(2).replace("`", "")
-        else -> false to l.replace("`", "")
-    }
-}
-
 /** Sub-pages of the settings home list. */
-private enum class Page(val title: String) {
+private enum class Page(val title: String, val widget: Boolean = true, val depth: Int = 1) {
     STYLE("Style"), FONT("Font"), COLOURS("Colours"), TIME("Time & date"), LAYOUT("Layout"), TAP("On tap"),
+    APP_FONT("App font", widget = false), TYPEFACE("Typeface", widget = false, depth = 2),
 }
+
+/** Sample lines in the app font preview. */
+private val FONT_SAMPLE = FontSample("Bold clock · 12:45", "Wallpaper colours · Shadow", "Minutia")
 
 private fun fontName(cfg: WidgetConfig): String {
     if (cfg.style == ClockStyle.ANALOG) return "Analog"
@@ -1003,56 +966,15 @@ private fun fontName(cfg: WidgetConfig): String {
 }
 
 /** Collects the rows of a [Group]; rows can be added conditionally. */
-private class GroupScope {
-    val items = mutableListOf<@Composable () -> Unit>()
-    fun item(content: @Composable () -> Unit) { items += content }
-}
+private typealias GroupScope = KitGroupScope
 
-/**
- * Material 3 Expressive list group (Android 16 Settings style): each row is its own tonal container,
- * 2dp apart, with large corners on the outside of the group and small corners between rows.
- */
+/** Material 3 Expressive list group (Android 16 Settings style), from the shared kit. */
 @Composable
-private fun Group(title: String? = null, build: GroupScope.() -> Unit) {
-    val items = GroupScope().apply(build).items
-    if (items.isEmpty()) return
-    Column(Modifier.fillMaxWidth()) {
-        if (title != null) {
-            Text(
-                title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-            )
-        }
-        Column(
-            Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            items.forEachIndexed { i, content ->
-                val big = 24.dp
-                val small = 6.dp
-                val shape = RoundedCornerShape(
-                    topStart = if (i == 0) big else small,
-                    topEnd = if (i == 0) big else small,
-                    bottomStart = if (i == items.lastIndex) big else small,
-                    bottomEnd = if (i == items.lastIndex) big else small,
-                )
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = shape,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { content() }
-            }
-        }
-    }
-}
+private fun Group(title: String? = null, build: GroupScope.() -> Unit) = KitGroup(title, build = build)
 
 /** Padding for free-form content (sliders, pickers) inside a group row. */
 @Composable
-private fun Pad(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp), content = content)
-}
+private fun Pad(content: @Composable ColumnScope.() -> Unit) = KitPad(content)
 
 /** Leading icon in a tonal circle, as in Android 16 Settings. */
 @Composable
@@ -1060,31 +982,12 @@ private fun RowIcon(
     icon: ImageVector,
     container: Color = MaterialTheme.colorScheme.secondaryContainer,
     tint: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-) {
-    Box(
-        Modifier.size(40.dp).clip(CircleShape).background(container),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp)) }
-}
+) = KitRowIcon(icon, container, tint)
 
 /** Home list row: icon, title, current value, chevron. Opens a sub-page. */
 @Composable
-private fun NavRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = { RowIcon(icon) },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        trailingContent = {
-            Icon(
-                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
-}
+private fun NavRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) =
+    KitNavRow(title, value, icon, onClick = onClick)
 
 /** Clock style tile: live thumbnail on a wallpaper-like gradient, label below. */
 @Composable
@@ -1227,39 +1130,7 @@ private fun SwitchRow(
     icon: ImageVector? = null,
     summary: String? = null,
     onChange: (Boolean) -> Unit,
-) {
-    val content = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.width(16.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, color = content)
-            if (summary != null) {
-                Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = null, // the whole row toggles
-            enabled = enabled,
-            thumbContent = if (checked) {
-                { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
-            } else {
-                null
-            },
-        )
-    }
-}
+) = KitSwitchRow(label, checked, summary, enabled, icon, onChange = onChange)
 
 @Composable
 private fun LabeledSlider(
@@ -1621,17 +1492,7 @@ private fun <T> Segmented(
     selected: T,
     label: (T) -> String,
     onSelect: (T) -> Unit,
-) {
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { i, option ->
-            SegmentedButton(
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
-            ) { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        }
-    }
-}
+) = KitSegmented(options, selected, label, onSelect = onSelect)
 
 /** Settings that come and go expand + fade instead of popping in. */
 @Composable
