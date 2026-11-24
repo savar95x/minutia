@@ -68,9 +68,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material3:material3")
+    // Pinned past the BOM like Aria, Hiatus and Regista: the BOM's stable material3 keeps the Expressive APIs internal.
+    implementation("androidx.compose.material3:material3:1.5.0-alpha27")
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.material:material-icons-extended")
+    // Shared kit (dev.savar.kit): app font via Play Services downloadable Google Fonts.
+    implementation("androidx.compose.ui:ui-text-google-fonts")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

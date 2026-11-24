@@ -1,7 +1,17 @@
 # Changelog
 
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
-Each `## [x.y.z]` section becomes the release notes on GitHub when that version ships.
+Each `## [1.14.0] - 2026-11-24
+### Changed
+- Updates work the same way in all four of your apps now: checked whenever you open Minutia, shown as a card on the home page and in Settings → About (never a pop-up). Update downloads once (resuming if cut off) and installs in one tap.
+- Pure black: the top bar stays black when you scroll, like your other apps.
+- Settings: every row has an icon, the same round tonal icons as Aria, Minutia, Hiatus and Regista.
+- Text uses Aria's styles: bolder titles, no stretched letter spacing.
+- ⋮ → Theme: System, Light or Dark (Minutia used to always follow the phone).
+- Material 3 Expressive theme and motion, like your other apps.
+- ⋮ → App font opens a page like Aria's: any Google Font, with size, weight and letter spacing.
+
+## [x.y.z]` section becomes the release notes on GitHub when that version ships.
 
 ## [1.13.2] - 2026-11-22
 

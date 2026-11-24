@@ -8,7 +8,7 @@
         android:name="android.permission.SCHEDULE_EXACT_ALARM"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- In-app updates from GitHub Releases (Updater.kt). -->
+    <!-- In-app updates from GitHub Releases (shared kit, dev/savar/kit/Updater.kt). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
@@ -54,7 +54,7 @@
             android:theme="@android:style/Theme.NoDisplay" />
 
         <receiver
-            android:name=".InstallResultReceiver"
+            android:name="dev.savar.kit.UpdateReceiver"
             android:exported="false" />
 
         <!-- Two variants of the same widget: no label (default) and labelled. -->
