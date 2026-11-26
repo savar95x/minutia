@@ -1,7 +1,11 @@
 # Changelog
 
 Versions follow [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH.
-Each `## [1.14.0] - 2026-11-24
+Each `## [1.14.1] - 2026-11-26
+### Changed
+- Text is back to Material 3's standard styles (sizes, weights and spacing as Google ships them), in all four of your apps.
+
+## [1.14.0] - 2026-11-24
 ### Changed
 - Updates work the same way in all four of your apps now: checked whenever you open Minutia, shown as a card on the home page and in Settings → About (never a pop-up). Update downloads once (resuming if cut off) and installs in one tap.
 - Pure black: the top bar stays black when you scroll, like your other apps.
