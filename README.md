@@ -26,19 +26,45 @@ Tap it to open your clock app.
 </td>
 </tr></table>
 
+<p align="center"><a href="../../releases/latest"><b>Download the latest APK</b></a></p>
+
+## Features
+
+**Widget**
 - **5 styles**: Bold, Stacked, Pills, Analog, Words
 - **Any Google Font**, typed in any capitalisation with suggestions as you type, or your own `.ttf`/`.otf`. Separate font for the date
 - **Material You** colours from your wallpaper, or pick your own
 - Size, weight, letter spacing, alignment, shadow, background, 12/24h, date presets or your own pattern (`EEE, d MMM` or `%a %d %b`)
-- Per-widget settings with a live preview
 - Tap to open your clock app (or any app you pick)
 - No name under the widget by default; *Show name* adds a named one
+- Updated every minute and redrawn the moment you wake the phone
+
+**App**
+- A live preview on top, settings grouped underneath, each opening its own page
+- Theme (System / Light / Dark), pure black, and the app's own font
+- A **Battery** row that spots OxygenOS restrictions and fixes them in one tap
+- Updates from inside the app: a card on the home page when a new version is out; one tap downloads and installs it
 
 ## Install
 Grab `Minutia-x.y.z.apk` from the [latest release](../../releases/latest), open it on your phone and allow "Install unknown apps" when asked. What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Then long-press your home screen → Widgets → Minutia.
 
 On OnePlus/OxygenOS, if the app's **Battery** row says *Restricted*, tap **Fix** so the clock never lags.
+
+## Part of a family
+
+<p align="center"><img src="docs/family.png" width="420" alt="Aria, Minutia, Hiatus and Regista icons" /></p>
+
+Four small Android apps built to look and behave like one set: same icon palette, Material 3 Expressive with your
+wallpaper's colours, pure black mode, any Google Font for the app, the same settings layout, and in-app updates
+from GitHub Releases.
+
+| | |
+|---|---|
+| [**Aria**](https://github.com/savar95x/aria-player) | Music player for your local files |
+| [**Minutia**](https://github.com/savar95x/minutia) | Clock widget where every detail is yours |
+| [**Hiatus**](https://github.com/savar95x/hiatus) | How long you've been away from your phone |
+| [**Regista**](https://github.com/savar95x/regista) | Reminders for the football matches you care about |
 
 ## Build
 Every push to `main` builds a signed APK with GitHub Actions (`.github/workflows/build.yml`).
