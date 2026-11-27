@@ -45,6 +45,8 @@ Tap it to open your clock app.
 - A **Battery** row that spots OxygenOS restrictions and fixes them in one tap
 - Updates from inside the app: a card on the home page when a new version is out; one tap downloads and installs it
 
+<p align="center"><img src="docs/screenshots/app.webp" width="270" alt="Minutia's app: live preview, then Style, Font, Colours and Time &amp; date rows" /></p>
+
 ## Install
 Grab `Minutia-x.y.z.apk` from the [latest release](../../releases/latest), open it on your phone and allow "Install unknown apps" when asked. What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Then long-press your home screen → Widgets → Minutia.
